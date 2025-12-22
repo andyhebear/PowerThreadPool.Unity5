@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PowerThreadPoolTest", "PowerThreadPoolTest\PowerThreadPoolTest.csproj", "{29CE4645-0683-4DBC-9C7E-9268C395E585}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PowerThreadPool", "PowerThreadPool\PowerThreadPool.csproj", "{D94DD0FD-9E6C-4817-8BE4-57C23235AC2B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTest", "UnitTest\UnitTest.csproj", "{A71B326B-A525-4381-9278-09E298055B4D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmark", "Benchmark\Benchmark.csproj", "{470FB9E9-F963-41B8-9ECB-360906ABE0CC}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Deque", "Deque\Deque.shproj", "{70448BCA-9802-46C0-9AA8-17F518A8E7B2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{29CE4645-0683-4DBC-9C7E-9268C395E585}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29CE4645-0683-4DBC-9C7E-9268C395E585}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29CE4645-0683-4DBC-9C7E-9268C395E585}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29CE4645-0683-4DBC-9C7E-9268C395E585}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D94DD0FD-9E6C-4817-8BE4-57C23235AC2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D94DD0FD-9E6C-4817-8BE4-57C23235AC2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D94DD0FD-9E6C-4817-8BE4-57C23235AC2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D94DD0FD-9E6C-4817-8BE4-57C23235AC2B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A71B326B-A525-4381-9278-09E298055B4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A71B326B-A525-4381-9278-09E298055B4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A71B326B-A525-4381-9278-09E298055B4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A71B326B-A525-4381-9278-09E298055B4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{470FB9E9-F963-41B8-9ECB-360906ABE0CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{470FB9E9-F963-41B8-9ECB-360906ABE0CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{470FB9E9-F963-41B8-9ECB-360906ABE0CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{470FB9E9-F963-41B8-9ECB-360906ABE0CC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {84E37518-9A2C-41A2-83A1-EACB915A2440}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		Deque\Deque.projitems*{70448bca-9802-46c0-9aa8-17f518a8e7b2}*SharedItemsImports = 13
+		Deque\Deque.projitems*{d94dd0fd-9e6c-4817-8be4-57c23235ac2b}*SharedItemsImports = 5
+	EndGlobalSection
+EndGlobal

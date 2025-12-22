@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net5.0;net6.0;net7.0;net8.0;net9.0;net10.0;net40;net45;net451;net452;net46;net461;net462;net47;net471;net472;net48;net481;netstandard2.0;netstandard2.1;</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+
+    <PackageId>PowerThreadPool</PackageId>
+    <Description>A comprehensive and efficient low-contention thread pool for easily managing both sync and async workloads. It provides granular work control, flexible concurrency, and robust error handling.</Description>
+    <PackageTags>csharp;thread;thread-pool;threadpool;coroutine;task;async;dotnet;.net;lockfree;lock-free;</PackageTags>
+    <Authors>ZjzMisaka</Authors>
+    <RepositoryUrl>https://github.com/ZjzMisaka/PowerThreadPool</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ZjzMisaka/PowerThreadPool</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\PowerThreadPool.publickey</AssemblyOriginatorKeyFile>
+    <DelaySign>true</DelaySign>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\icon.png" Pack="true" PackagePath="\" />
+    <None Include=".\.editorconfig" />
+    <EditorConfigFiles Remove=".\.editorconfig" />
+    <InternalsVisibleTo Include="UnitTest, PublicKey=002400000480000094000000060200000024000052534131000400000100010081620bf4a7da74401dbc130bfc0713ce7a455980335a147fe246da32d243adadc79710c4a733e488abe79f5338d1edf1ac26995d5951c965bed47a42c56cda1432c33393360746fdc3e60f48bb424dd526acd0e64077675c57675d3fee508df56b5806a160fbc94916757a55f97960cfdf9a36a784937a33765a1fea0008fce9" />
+  </ItemGroup>
+
+  <Import Project="..\Deque\Deque.projitems" Label="Shared" />
+
+</Project>

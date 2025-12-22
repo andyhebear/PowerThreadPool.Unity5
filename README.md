@@ -1,102 +1,156 @@
-# PowerThreadPool
-![icon](https://raw.githubusercontent.com/ZjzMisaka/PowerThreadPool/main/icon.png)
+# PowerThreadPool_Net20
 
-![Nuget](https://img.shields.io/nuget/v/PowerThreadPool?style=for-the-badge)
-![Nuget](https://img.shields.io/nuget/dt/PowerThreadPool?style=for-the-badge)
-![GitHub release (with filter)](https://img.shields.io/github/v/release/ZjzMisaka/PowerThreadPool?style=for-the-badge)
-![GitHub Repo stars](https://img.shields.io/github/stars/ZjzMisaka/PowerThreadPool?style=for-the-badge)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/ZjzMisaka/PowerThreadPool/test.yml?style=for-the-badge)
-[![Codecov](https://img.shields.io/codecov/c/github/ZjzMisaka/PowerThreadPool?style=for-the-badge)](https://app.codecov.io/gh/ZjzMisaka/PowerThreadPool)
-[![CodeFactor](https://www.codefactor.io/repository/github/zjzmisaka/powerthreadpool/badge?style=for-the-badge)](https://www.codefactor.io/repository/github/zjzmisaka/powerthreadpool)
+基于PowerThreadPool接口与设计的.NET 2.0兼容版本，专为Unity 5.x设计。
 
-A comprehensive and efficient lock-free thread pool with granular work control, flexible concurrency, and robust error handling, alongside an easy-to-use API for diverse work submissions.  
+## 特性
 
-## Documentation
-Read the [English](https://github.com/ZjzMisaka/PowerThreadPool/wiki) | [中文](https://github.com/ZjzMisaka/PowerThreadPool.zh-CN.Wiki/wiki) | [日本語](https://github.com/ZjzMisaka/PowerThreadPool.ja-JP.Wiki/wiki) Wiki here.  
+- **.NET 2.0兼容**: 兼容Unity 5.x的.NET 2.0运行时
+- **线程池管理**: 高效的工作线程池实现
+- **工作队列**: 线程安全的工作队列管理
+- **异常处理**: 完整的异常处理机制
+- **中文注解**: 所有代码都包含详细的中文和英文注释
 
-## Installation
-If you want to include PowerThreadPool in your project, you can [install it directly from NuGet](https://www.nuget.org/packages/PowerThreadPool/).  
-Support: Net40+ | Net5.0+ | netstandard2.0+  
+## 项目结构
 
-## Features
-- [Pool Control | Work Control](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control)
-    - [Stop](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#pause-resume-stop)
-    - [Pause](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#pause-resume-stop)
-    - [Resume](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#pause-resume-stop)
-    - [Force Stop](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#force-stop)
-    - [Wait](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#wait)
-    - [Fetch](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#fetch)
-    - [Cancel](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Control#cancel)
-- [Thread Pool Sizing](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Thread-Pool-Sizing)
-    - [Idle Thread Scheduled Destruction](https://github.com/ZjzMisaka/PowerThreadPool/wiki/DestroyThreadOption)
-    - [Thread Starvation Countermeasures (Long-running Work Support)](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Thread-Pool-Sizing#thread-starvation)
-- [Work Callback | Default Callback](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Callback)
-- [Parallel Execution](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Parallel-Execution)
-    - [For](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Parallel-Execution#For)
-    - [ForEach](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Parallel-Execution#ForEach)
-    - [Watch](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Parallel-Execution#Watch)
-- [Work Priority | Thread Priority](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Priority)
-- [Error Handling](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Error-Handling)
-    - [Retry](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Retry)
-- [Work Timeout | Cumulative Work Timeout](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Timeout)
-- [Work Dependency](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Dependency)
-- [Work Group](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Group)
-    - [Group Control](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Work-Group#group-control)
-    - [Group Relation](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Group-Relation)
-- [Events](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Events)
-- [Runtime Status](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Runtime-Status)
-- [Running Timer](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Running-Timer)
-- [Queue Type (FIFO | LIFO | Custom)](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Queue-Type)
-- [Load Balancing](https://en.wikipedia.org/wiki/Work_stealing)
-- [Lock-Free](https://en.wikipedia.org/wiki/Non-blocking_algorithm)
+```
+PowerThreadPool_Net20/
+├── Core/                          # 核心实现
+│   └── PowerPool_Net20.cs        # 主线程池类
+├── Works/                        # 工作相关类
+│   ├── WorkBase_Net20.cs         # 工作基类
+│   ├── WorkID_Net20.cs           # 工作ID
+│   ├── WorkItem_Net20.cs         # 工作项
+│   └── WorkerThread_Net20.cs     # 工作线程
+├── Collections/                  # 集合类
+│   └── ConcurrentQueue_Net20.cs  # 线程安全队列
+├── Constants/                    # 常量定义
+│   ├── PoolStates_Net20.cs       # 线程池状态
+│   ├── WorkerStates_Net20.cs     # 工作线程状态
+│   ├── WorkStealability_Net20.cs # 工作可窃取性
+│   ├── WorkHeldStates_Net20.cs   # 工作保持状态
+│   ├── CanCancel_Net20.cs        # 是否可取消
+│   ├── CanGetWork_Net20.cs       # 是否可获取工作
+│   ├── CanCreateNewWorker_Net20.cs # 是否可创建新工作线程
+│   ├── CanDeleteRedundantWorker_Net20.cs # 是否可删除冗余工作线程
+│   ├── CanDispose_Net20.cs       # 是否可销毁
+│   ├── CanForceStop_Net20.cs     # 是否可强制停止
+│   ├── CanWatch_Net20.cs         # 是否可监视
+│   ├── DependencyStatus_Net20.cs # 依赖状态
+│   └── WatchStates_Net20.cs      # 监视状态
+├── Exceptions/                   # 异常类
+│   ├── WorkExceptionBase_Net20.cs      # 工作异常基类
+│   ├── WorkRejectedException_Net20.cs  # 工作被拒绝异常
+│   └── CycleDetectedException_Net20.cs # 循环检测异常
+├── Options/                     # 选项类
+│   ├── PowerPoolOption_Net20.cs  # 线程池选项
+│   └── WorkOption_Net20.cs      # 工作选项
+├── Results/                     # 结果类
+│   ├── ExecuteResult_Net20.cs   # 执行结果
+│   └── EventArguments_Net20.cs  # 事件参数
+├── Helpers/                     # 辅助类
+│   └── ThreadSafeHelper_Net20.cs # 线程安全辅助类
+└── PowerThreadPool_Net20.csproj # 项目文件
+```
 
-## Getting started
-### Simple example: run a work
+## 使用示例
+
+### 基本使用
+
 ```csharp
-PowerPool powerPool = new PowerPool();
-powerPool.QueueWorkItem(() => 
+using PowerThreadPool_Net20;
+using PowerThreadPool_Net20.Options;
+
+// 创建线程池选项
+var options = new PowerPoolOption_Net20
 {
-    // Do something
-});
+    MinWorkerThreads = 2,
+    MaxWorkerThreads = 10,
+    IdleTimeout = TimeSpan.FromMinutes(1)
+};
+
+// 创建线程池
+using (var threadPool = new PowerPool_Net20(options))
+{
+    // 添加工作项
+    var workId = threadPool.QueueWorkItem(() => 
+    {
+        Console.WriteLine("Hello from worker thread!");
+        return "Work completed";
+    });
+
+    // 等待工作完成
+    var result = threadPool.WaitForWork(workId);
+    Console.WriteLine("Result: " + result.Result);
+}
 ```
 
-### With callback
+### 高级使用
+
 ```csharp
-PowerPool powerPool = new PowerPool(new PowerPoolOption() { /* Some options */ });
-powerPool.QueueWorkItem(() => 
+using PowerThreadPool_Net20;
+using PowerThreadPool_Net20.Options;
+using PowerThreadPool_Net20.Results;
+
+// 创建自定义工作选项
+var workOptions = new WorkOption_Net20
 {
-    // Do something
-    return result;
-}, (res) => 
+    CanCancel = true,
+    Timeout = TimeSpan.FromSeconds(30)
+};
+
+// 添加带选项的工作项
+var workId = threadPool.QueueWorkItem(
+    () => DoComplexWork(),
+    workOptions,
+    "WorkGroup1" // 工作组名称
+);
+
+// 监听工作完成事件
+threadPool.WorkCompleted += (sender, args) =>
 {
-    // Callback of the work
-});
+    Console.WriteLine($"Work {args.WorkId} completed with result: {args.Result}");
+};
+
+// 取消工作
+threadPool.CancelWork(workId);
 ```
 
-### With option
-```csharp
-PowerPool powerPool = new PowerPool(new PowerPoolOption() { /* Some options */ });
-powerPool.QueueWorkItem(() => 
-{
-    // Do something
-    return result;
-}, new WorkOption()
-{
-    // Some options
-});
-```
+## 核心类说明
 
-### Reference
-``` csharp
-string QueueWorkItem<T1, ...>(Action<T1, ...> action, T1 param1, ..., *);
-string QueueWorkItem(Action action, *);
-string QueueWorkItem(Action<object[]> action, object[] param, *);
-string QueueWorkItem<T1, ..., TResult>(Func<T1, ..., TResult> function, T1 param1, ..., *);
-string QueueWorkItem<TResult>(Func<TResult> function, *);
-string QueueWorkItem<TResult>(Func<object[], TResult> function, object[] param, *);
-```
-- Asterisk (*) denotes an optional parameter, either a WorkOption or a delegate (`Action<ExecuteResult<object>>` or `Action<ExecuteResult<TResult>>`), depending on whether the first parameter is an Action or a Func. 
-- In places where you see ellipses (...), you can provide up to five generic type parameters.
+### PowerPool_Net20
+主线程池类，负责管理工作线程池、工作队列和执行调度。
 
-## More
-[Testing And Performance Analysis](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Testing-And-Performance-Analysis) | [Feature Comparison](https://github.com/ZjzMisaka/PowerThreadPool/wiki/Feature-Comparison)
+### WorkItem_Net20
+表示一个工作项，包含要执行的方法、参数和选项。
+
+### WorkerThread_Net20
+工作线程类，从队列中获取工作项并执行。
+
+### ConcurrentQueue_Net20
+.NET 2.0兼容的线程安全队列实现。
+
+### WorkExceptionBase_Net20
+工作相关异常的基类。
+
+## 兼容性说明
+
+此项目专为.NET 2.0设计，移除了以下.NET 4.0+特性：
+- `System.Collections.Concurrent`命名空间
+- `Task<T>`和async/await语法
+- `Tuple`类型
+- 一些现代线程同步原语
+
+替代方案：
+- 使用自定义的`ConcurrentQueue_Net20`替代`ConcurrentQueue<T>`
+- 使用传统的回调和事件机制替代async/await
+- 使用自定义结构体替代`Tuple`
+
+## 编译要求
+
+- .NET Framework 2.0
+- Unity 5.6或更高版本
+- C# 3.0编译器（Unity内置）
+
+## 许可证
+
+本项目基于原始PowerThreadPool项目进行适配，遵循相同的许可证条款。

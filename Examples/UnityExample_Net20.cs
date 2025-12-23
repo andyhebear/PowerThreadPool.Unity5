@@ -4,6 +4,8 @@ using System.Collections;
 using PowerThreadPool_Net20;
 using PowerThreadPool_Net20.Options;
 using PowerThreadPool_Net20.Results;
+using System;
+using PowerThreadPool_Net20.Threading;
 
 namespace PowerThreadPool_Net20.Examples
 {
@@ -23,10 +25,11 @@ namespace PowerThreadPool_Net20.Examples
             // 创建线程池选项 / Create thread pool options
             var options = new PowerPoolOption
             {
-                MinWorkerThreads = 2,
-                MaxWorkerThreads = 8,
-                IdleTimeout = 30000, // 30秒 / 30 seconds
-                WorkStealingEnabled = true
+                 MinThreads = 2,
+                MaxThreads = 8,
+                 IdleThreadTimeout =TimeSpan.FromMilliseconds( 30000), // 30秒 / 30 seconds            
+                  EnableStatisticsCollection = true,
+                   StartSuspended = true,
             };
             
             // 创建并启动线程池 / Create and start thread pool
@@ -56,8 +59,8 @@ namespace PowerThreadPool_Net20.Examples
                     }
                     return result;
                 },
-                new WorkOption { CanCancel = false },
-                "ComputeGroup"
+                new WorkOption {  Timeout= TimeSpan.FromSeconds(5) }
+              
             );
             
             Debug.Log("Queued compute work item: " + workId1);
@@ -70,12 +73,12 @@ namespace PowerThreadPool_Net20.Examples
                     System.Threading.Thread.Sleep(2000);
                     return "IO Task Completed";
                 },
-                new WorkOption { Timeout = 5000 }, // 5秒超时 / 5 seconds timeout
-                "IOGroup"
+                new WorkOption { Timeout = TimeSpan.FromMilliseconds( 5000) } // 5秒超时 / 5 seconds timeout
+           
             );
             
             Debug.Log("Queued IO work item: " + workId2);
-            
+            CancellationTokenSource cts = new CancellationTokenSource();
             // 带参数的工作项 / Work item with parameters
             var workId3 = _threadPool.QueueWorkItem(
                 (param) => 
@@ -85,8 +88,8 @@ namespace PowerThreadPool_Net20.Examples
                     return "Processed: " + message;
                 },
                 "Hello from Unity!",
-                new WorkOption { CanCancel = true },
-                "MessageGroup"
+                new WorkOption {  CancellationToken= cts.Token }
+               
             );
             
             Debug.Log("Queued parameterized work item: " + workId3);

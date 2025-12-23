@@ -9,7 +9,7 @@ namespace PowerThreadPool_Net20.Options
     /// </summary>
     public class WorkOption
     {
-        private TimeSpan _timeout = TimeSpan.MaxValue;
+        private TimeSpan _timeout = TimeSpan.FromMilliseconds(int.MaxValue);
         private bool _longRunning = false;
         
         /// <summary>

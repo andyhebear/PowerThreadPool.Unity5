@@ -14,6 +14,8 @@ namespace PowerThreadPool_Net20.Options
         private bool _startSuspended = false;
         private int _threadQueueLimit = 100;
         private TimeSpan _timeout = TimeSpan.FromHours(1);
+        private TimeSpan _idleThreadTimeout = TimeSpan.FromMinutes(5);
+        private int _minThreads = 1;
         
         /// <summary>
         /// 最大线程数
@@ -81,6 +83,36 @@ namespace PowerThreadPool_Net20.Options
         }
         
         /// <summary>
+        /// 空闲线程超时时间
+        /// Idle thread timeout duration
+        /// </summary>
+        public TimeSpan IdleThreadTimeout
+        {
+            get { return _idleThreadTimeout; }
+            set
+            {
+                if (value <= TimeSpan.Zero)
+                    throw new ArgumentException("IdleThreadTimeout must be greater than zero");
+                _idleThreadTimeout = value;
+            }
+        }
+        
+        /// <summary>
+        /// 最小线程数
+        /// Minimum number of threads
+        /// </summary>
+        public int MinThreads
+        {
+            get { return _minThreads; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentException("MinThreads must be greater than 0");
+                _minThreads = value;
+            }
+        }
+        
+        /// <summary>
         /// 线程优先级
         /// Thread priority
         /// </summary>
@@ -119,6 +151,8 @@ namespace PowerThreadPool_Net20.Options
                 _startSuspended = other._startSuspended;
                 _threadQueueLimit = other._threadQueueLimit;
                 _timeout = other._timeout;
+                _idleThreadTimeout = other._idleThreadTimeout;
+                _minThreads = other._minThreads;
                 ThreadPriority = other.ThreadPriority;
                 UseBackgroundThreads = other.UseBackgroundThreads;
                 ThreadNamePrefix = other.ThreadNamePrefix;
@@ -148,8 +182,10 @@ namespace PowerThreadPool_Net20.Options
         public static PowerPoolOption HighPerformance => new PowerPoolOption
         {
             MaxThreads = Environment.ProcessorCount * 4,
+            MinThreads = Environment.ProcessorCount,
             ThreadQueueLimit = 1000,
-            EnableStatisticsCollection = false
+            EnableStatisticsCollection = false,
+            IdleThreadTimeout = TimeSpan.FromMinutes(1) // 高性能模式下更激进的线程回收
         };
     }
 }

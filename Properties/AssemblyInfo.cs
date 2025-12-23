@@ -1,36 +1,33 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
-// 程序集的常规信息通过以下属性集控制
-// Assembly general information is controlled through the following attribute set
-[assembly: AssemblyTitle("PowerThreadPool_Net20")]
-[assembly: AssemblyDescription(".NET 2.0 compatible thread pool for Unity 5.6")]
+// 有关程序集的一般信息由以下
+// 控制。更改这些特性值可修改
+// 与程序集关联的信息。
+[assembly: AssemblyTitle("PowerThreadPool_Net2")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("PowerThreadPool_Net20")]
-[assembly: AssemblyCopyright("Copyright ©  2024")]
+[assembly: AssemblyProduct("PowerThreadPool_Net2")]
+[assembly: AssemblyCopyright("Copyright ©  2025")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
-// 将 ComVisible 设置为 false 使此程序集中的类型对 COM 组件不可见
-// Setting ComVisible to false makes types in this assembly not visible to COM components
+// 将 ComVisible 设置为 false 会使此程序集中的类型
+//对 COM 组件不可见。如果需要从 COM 访问此程序集中的类型
+//请将此类型的 ComVisible 特性设置为 true。
 [assembly: ComVisible(false)]
 
 // 如果此项目向 COM 公开，则下列 GUID 用于类型库的 ID
-// If this project is exposed to COM, the following GUID is used for the type library ID
-[assembly: Guid("e8a6b2a0-f3d2-4f5e-9d1a-3e9f4d3b2c1a")]
+[assembly: Guid("a2b3144d-1d4f-41fe-bab7-02a9c328470e")]
 
-// 程序集的版本信息由下面四个值组成:
-// The assembly version information consists of the following four values:
+// 程序集的版本信息由下列四个值组成: 
 //
-//      主版本 / Major Version
-//      次版本 / Minor Version 
-//      内部版本号 / Build Number
-//      修订号 / Revision
+//      主版本
+//      次版本
+//      生成号
+//      修订号
 //
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
-
-// 允许跨程序集访问内部成员
-// Allow access to internal members across assemblies
-[assembly: InternalsVisibleTo("PowerThreadPool_Net20.Tests")]

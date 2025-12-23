@@ -17,48 +17,57 @@ namespace PowerThreadPool_Net20.Works
         private volatile bool _shouldStop;
         private volatile bool _isIdle;
         private WorkID _currentWorkID = WorkID.Empty;
-        
+        private DateTime _idleStartTime = DateTime.Now;
+
         /// <summary>
         /// 线程ID
         /// Thread ID
         /// </summary>
         public int ThreadId => _threadId;
-        
+
         /// <summary>
         /// 是否空闲
         /// Whether idle
         /// </summary>
         public bool IsIdle => _isIdle;
-        
+
         /// <summary>
         /// 当前工作ID / Current work ID
         /// </summary>
         public WorkID CurrentWorkID => _currentWorkID;
-        
+
         /// <summary>
         /// 线程对象
         /// Thread object
         /// </summary>
         public Thread Thread => _thread;
-        
+
+        /// <summary>
+        /// 空闲开始时间
+        /// Idle start time
+        /// </summary>
+        public DateTime IdleStartTime => _idleStartTime;
+
         /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
-        public WorkerThread(PowerPool pool, int threadId)
+        public WorkerThread(PowerPool pool,int threadId)
         {
             _pool = pool;
             _threadId = threadId;
             _thread = new Thread(ThreadProc)
             {
-                Name = $"PowerPool-Worker-{threadId}",
-                IsBackground = true
+                Name = pool.Options.ThreadNamePrefix + $"-Worker-{threadId}",
+                IsBackground = pool.Options.UseBackgroundThreads,
+                Priority = pool.Options.ThreadPriority,
+
             };
             _shouldStop = false;
             _isIdle = true;
             _currentWorkID = WorkID.Empty;
         }
-        
+
         /// <summary>
         /// 启动线程
         /// Start thread
@@ -70,7 +79,7 @@ namespace PowerThreadPool_Net20.Works
                 _thread.Start();
             }
         }
-        
+
         /// <summary>
         /// 停止线程
         /// Stop thread
@@ -79,7 +88,7 @@ namespace PowerThreadPool_Net20.Works
         {
             _shouldStop = true;
         }
-        
+
         /// <summary>
         /// 标记为要停止（优雅停止）
         /// Mark for stop (graceful stop)
@@ -88,7 +97,17 @@ namespace PowerThreadPool_Net20.Works
         {
             _shouldStop = true;
         }
-        
+
+        /// <summary>
+        /// 标记为需要取消当前工作
+        /// Mark for cancellation of current work
+        /// </summary>
+        public void MarkForCancellation()
+        {
+            // 设置停止标志，让线程在下一次检查时退出
+            _shouldStop = true;
+        }
+
         /// <summary>
         /// 等待线程完成
         /// Wait for thread to complete
@@ -100,7 +119,7 @@ namespace PowerThreadPool_Net20.Works
                 _thread.Join(1000); // 最多等待1秒，减少Dispose阻塞时间
             }
         }
-        
+
         /// <summary>
         /// 线程主循环
         /// Thread main loop
@@ -112,20 +131,21 @@ namespace PowerThreadPool_Net20.Works
                 while (!_shouldStop)
                 {
                     _isIdle = true;
+                    _idleStartTime = DateTime.Now; // 更新空闲开始时间
                     _currentWorkID = WorkID.Empty;
-                    
+
                     // 从线程池获取工作项
                     WorkItem workItem = _pool.GetWorkItem();
-                    
+
                     if (workItem == null)
                         break;
-                        
+
                     _isIdle = false;
                     _currentWorkID = workItem.ID;
-                    
+
                     // 执行工作项
                     ExecuteWorkItem(workItem);
-                    
+
                     _currentWorkID = WorkID.Empty;
                 }
             }
@@ -148,40 +168,40 @@ namespace PowerThreadPool_Net20.Works
                 _currentWorkID = WorkID.Empty;
             }
         }
-        
+
         /// <summary>
-        /// 执行工作项
-        /// Execute work item
+        /// 执行工作项（异步回调模式）
+        /// Execute work item (asynchronous callback mode)
         /// </summary>
         private void ExecuteWorkItem(WorkItem workItem)
         {
             DateTime startTime = DateTime.Now;
-            object result = null;
-            Exception exception = null;
-            
-            try
+
+            // 检查暂停信号 - 通过公共接口而不是直接访问私有字段
+            if (!_pool.WaitForPauseSignal())
+                return;
+
+            // 检查取消令牌 - 由WorkerThread执行线程负责检查
+            if (workItem.Option.CancellationToken != null && workItem.Option.CancellationToken.IsCancellationRequested)
             {
-                // 检查暂停信号 - 通过公共接口而不是直接访问私有字段
-                if (!_pool.WaitForPauseSignal())
-                    return;
-                
-                // 执行工作
-                result = workItem.Execute();
-                
+                // 在释放锁之前调用OnWorkCompleted，避免死锁
+                _pool.OnWorkCompleted(workItem, null, new OperationCanceledException());
+                return;
+            }
+
+            // 异步执行工作项，通过回调获取结果
+            workItem.ExecuteAsync((completedWorkItem, result, exception) =>
+            {
                 // 更新执行时间统计 - 通过公共接口
                 if (_pool.Options.EnableStatisticsCollection)
                 {
                     long executeTime = (long)(DateTime.Now - startTime).TotalMilliseconds;
                     _pool.AddExecuteTime(executeTime);
                 }
-            }
-            catch (Exception ex)
-            {
-                exception = ex;
-            }
-            
-            // 通知线程池工作完成
-            _pool.OnWorkCompleted(workItem, result, exception);
+
+                // 通知线程池工作完成
+                _pool.OnWorkCompleted(completedWorkItem, result, exception);
+            });
         }
     }
 }

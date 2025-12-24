@@ -456,16 +456,7 @@ pool.WaitAll();
 3. 查看示例代码了解正确用法
 4. 检查异常日志获取详细信息
 
-## 贡献
 
-欢迎提交问题和改进建议！
-
-## 许可证
-
-MIT License
-  - 任务调度和执行
-  - 异常处理
-  - 任务取消
 
 ## 许可证
 
@@ -484,6 +475,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tbody>
     <tr>
+       <td align="center" valign="top" width="14.28%"><a href="https://github.com/andyhebear"><img src="https://avatars.githubusercontent.com/u/22004270?v=4?s=100" width="100px;" alt="rains"/><br /><sub><b>rains</b></sub></a><br /><a href="https://github.com/ZjzMisaka/PowerThreadPool/commits?author=andyhebear" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/dlnn"><img src="https://avatars.githubusercontent.com/u/22004270?v=4?s=100" width="100px;" alt="一条咸鱼"/><br /><sub><b>一条咸鱼</b></sub></a><br /><a href="https://github.com/ZjzMisaka/PowerThreadPool/commits?author=dlnn" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ZjzMisaka"><img src="https://avatars.githubusercontent.com/u/16731853?v=4?s=100" width="100px;" alt="ZjzMisaka"/><br /><sub><b>ZjzMisaka</b></sub></a><br /><a href="https://github.com/ZjzMisaka/PowerThreadPool/commits?author=ZjzMisaka" title="Code">💻</a> <a href="#maintenance-ZjzMisaka" title="Maintenance">🚧</a> <a href="https://github.com/ZjzMisaka/PowerThreadPool/commits?author=ZjzMisaka" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/r00tee"><img src="https://avatars.githubusercontent.com/u/32619657?v=4?s=100" width="100px;" alt="r00tee"/><br /><sub><b>r00tee</b></sub></a><br /><a href="#ideas-r00tee" title="Ideas, Planning, & Feedback">🤔</a></td>
@@ -504,8 +496,8 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 
 如有任何问题或建议，请通过以下方式联系：
 
-- Email: [your-email@example.com]
-- GitHub: [your-github-username]
+- Email: [andyhebear@example.com](mailto:andyhebear@example.com)
+- GitHub: [andyhebear](https://github.com/andyhebear)
 
 ## 致谢
 

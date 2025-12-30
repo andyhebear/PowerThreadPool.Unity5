@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -39,6 +39,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Collections\ConcurrentQueue_Net20.cs" />
+    <Compile Include="Collections\LockFreeQueue_Net20.cs" />
     <Compile Include="Collections\PriorityQueue_Net20.cs" />
     <Compile Include="Constants\CanCancel_Net20.cs" />
     <Compile Include="Constants\CanCreateNewWorker_Net20.cs" />
@@ -59,6 +60,7 @@
     <Compile Include="Exceptions\WorkExceptionBase_Net20.cs" />
     <Compile Include="Exceptions\WorkRejectedException_Net20.cs" />
     <Compile Include="Helpers\ThreadSafeHelper_Net20.cs" />
+    <Compile Include="Logging\ILogger_Net20.cs" />
     <Compile Include="Options\PowerPoolOption_Net20.cs" />
     <Compile Include="Options\WorkOption_Net20.cs" />
     <Compile Include="Program.cs" />

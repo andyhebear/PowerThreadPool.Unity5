@@ -383,7 +383,7 @@ namespace PowerThreadPool_Net20.Logging
             {
                 // 默认日志文件路径
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                logFilePath = Path.Combine(appData, "PowerThreadPool", "Logs", $"PowerThreadPool_{DateTime.Now:yyyyMMdd}.log");
+                logFilePath = Path.Combine(appData,"PowerThreadPool")+ "/Logs/"+ "PowerThreadPool_"+DateTime.Now.ToString("yyyyMMdd")+".log";
             }
 
             var consoleLogger = CreateConsoleLogger(minLevel);

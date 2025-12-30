@@ -16,6 +16,8 @@ namespace PowerThreadPool_Net20.Options
         private TimeSpan _timeout = TimeSpan.FromHours(1);
         private TimeSpan _idleThreadTimeout = TimeSpan.FromMinutes(5);
         private int _minThreads = 1;
+        private TimeSpan _resultCacheExpiration = TimeSpan.FromMinutes(10);
+        private bool _enableResultCacheExpiration = true;
         
         /// <summary>
         /// 最大线程数
@@ -110,6 +112,31 @@ namespace PowerThreadPool_Net20.Options
                     throw new ArgumentException("MinThreads must be greater than 0");
                 _minThreads = value;
             }
+        }
+
+        /// <summary>
+        /// 结果缓存过期时间
+        /// Result cache expiration duration
+        /// </summary>
+        public TimeSpan ResultCacheExpiration
+        {
+            get { return _resultCacheExpiration; }
+            set
+            {
+                if (value < TimeSpan.Zero)
+                    throw new ArgumentException("ResultCacheExpiration must be non-negative");
+                _resultCacheExpiration = value;
+            }
+        }
+
+        /// <summary>
+        /// 是否启用结果缓存过期
+        /// Whether to enable result cache expiration
+        /// </summary>
+        public bool EnableResultCacheExpiration
+        {
+            get { return _enableResultCacheExpiration; }
+            set { _enableResultCacheExpiration = value; }
         }
         
         /// <summary>

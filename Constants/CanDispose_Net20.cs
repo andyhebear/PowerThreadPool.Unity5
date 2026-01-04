@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
+    /*
     /// <summary>
     /// 是否可销毁枚举 / Can dispose enumeration
     /// </summary>
@@ -17,4 +18,5 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         NotAllowed = 1,
     }
+    */
 }

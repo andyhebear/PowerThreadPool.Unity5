@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
+   /*
     /// <summary>
     /// 依赖状态枚举 / Dependency status enumeration
     /// </summary>
@@ -22,4 +23,5 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         Failed = 2,
     }
+    */
 }

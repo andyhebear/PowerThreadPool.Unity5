@@ -9,27 +9,50 @@ namespace PowerThreadPool_Net20.Options
     /// </summary>
     public class WorkOption
     {
-        private TimeSpan _timeout = TimeSpan.FromMilliseconds(int.MaxValue);
-        private bool _longRunning = false;
-        
         /// <summary>
-        /// 超时时间
+        /// 超时时间：如果为负数或者0，则不超时。如果时间超过int.MaxValue，则抛出异常。
+        /// </summary>
+        private TimeSpan _timeout = TimeSpan.Zero;//
+        private bool _longRunning = true;
+
+        /// <summary>
+        ///  超时时间：如果为负数或者0，则不超时。如果时间超过int.MaxValue，则抛出异常。
         /// Timeout duration
         /// </summary>
         public TimeSpan Timeout
         {
             get { return _timeout; }
-            set { _timeout = value; }
+            set
+            {
+                _timeout = value;
+                // 根据超时时间自动设置LongRunning属性
+                // 如果为负数或者0则认为是长时间运行,如果时间超过int.MaxValue，则抛出异常。
+                UpdateLongRunningBasedOnTimeout();
+            }
         }
         
         /// <summary>
-        /// 是否长时间运行
-        /// Whether long running
+        /// 是否长时间运行（根据超时时间自动计算）
+        /// Whether long running (automatically calculated based on timeout)
         /// </summary>
         public bool LongRunning
         {
             get { return _longRunning; }
             set { _longRunning = value; }
+        }
+
+        /// <summary>
+        /// 根据超时时间更新LongRunning属性
+        /// Update LongRunning property based on timeout
+        /// </summary>
+        private void UpdateLongRunningBasedOnTimeout()
+        {
+
+            // 如果超时时间超过int.MaxValue毫秒，则报错
+            if (_timeout.TotalMilliseconds > int.MaxValue) {
+                throw new ArgumentOutOfRangeException("超时时间超过int.MaxValue");
+            }
+            _longRunning = _timeout.TotalMilliseconds <= 0;
         }
         
         /// <summary>
@@ -76,14 +99,14 @@ namespace PowerThreadPool_Net20.Options
         /// </summary>
         public static WorkOption Default => new WorkOption();
         
-        /// <summary>
-        /// 长时间运行实例
-        /// Long running instance
-        /// </summary>
-        public static WorkOption LongRunningInstance => new WorkOption
-        {
-            LongRunning = true
-        };
+        ///// <summary>
+        ///// 长时间运行实例
+        ///// Long running instance
+        ///// </summary>
+        //public static WorkOption LongRunningInstance => new WorkOption
+        //{
+        //    LongRunning = true
+        //};
         
         /// <summary>
         /// 高优先级实例

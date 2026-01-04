@@ -3,6 +3,50 @@ using PowerThreadPool_Net20.Works;
 
 namespace PowerThreadPool_Net20.Results
 {
+    /// <summary>
+    /// 工作事件参数基类（包含WorkID）
+    /// Work event argument base class (contains WorkID)
+    /// </summary>
+    public abstract class WorkEventBase : EventArgs
+    {
+        /// <summary>
+        /// 工作ID
+        /// Work ID
+        /// </summary>
+        public WorkID WorkID { get; private set; }
+
+        /// <summary>
+        /// 构造函数
+        /// Constructor
+        /// </summary>
+        protected WorkEventBase(WorkID workID)
+        {
+            WorkID = workID;
+        }
+    }
+
+    /// <summary>
+    /// 线程池事件参数基类（池级别事件）
+    /// Pool event argument base class (pool-level events)
+    /// </summary>
+    public abstract class PoolEventBase : EventArgs
+    {
+        /// <summary>
+        /// 事件时间
+        /// Event time
+        /// </summary>
+        public DateTime EventTime { get; private set; }
+
+        /// <summary>
+        /// 构造函数
+        /// Constructor
+        /// </summary>
+        protected PoolEventBase(DateTime eventTime)
+        {
+            EventTime = eventTime;
+        }
+    }
+
     ///// <summary>
     ///// 工作取消事件参数
     ///// Work canceled event arguments
@@ -89,33 +133,27 @@ namespace PowerThreadPool_Net20.Results
     /// 工作完成事件参数
     /// Work completed event arguments
     /// </summary>
-    public class WorkCompletedEventArgs : EventArgs
+    public class WorkCompletedEventArgs : WorkEventBase
     {
-        /// <summary>
-        /// 工作ID
-        /// Work ID
-        /// </summary>
-        public WorkID WorkID { get; private set; }
-        
         /// <summary>
         /// 结果
         /// Result
         /// </summary>
         public object Result { get; private set; }
-        
+
         /// <summary>
         /// 完成时间
         /// Completion time
         /// </summary>
         public DateTime CompletionTime { get; private set; }
-        
+
         /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
         public WorkCompletedEventArgs(WorkID workID, object result, DateTime completionTime)
+            : base(workID)
         {
-            WorkID = workID;
             Result = result;
             CompletionTime = completionTime;
         }
@@ -125,35 +163,45 @@ namespace PowerThreadPool_Net20.Results
     /// 工作失败事件参数
     /// Work failed event arguments
     /// </summary>
-    public class WorkFailedEventArgs : EventArgs
+    public class WorkFailedEventArgs : WorkEventBase
     {
-        /// <summary>
-        /// 工作ID
-        /// Work ID
-        /// </summary>
-        public WorkID WorkID { get; private set; }
-        
         /// <summary>
         /// 异常
         /// Exception
         /// </summary>
         public Exception Exception { get; private set; }
-        
+
         /// <summary>
         /// 失败时间
         /// Failure time
         /// </summary>
         public DateTime FailureTime { get; private set; }
-        
+
+        /// <summary>
+        /// 是否是被取消（通过CancellationToken或OperationCanceledException）
+        /// Whether it was canceled (via CancellationToken or OperationCanceledException)
+        /// </summary>
+        public bool IsCanceled { get; private set; }
+       
         /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
         public WorkFailedEventArgs(WorkID workID, Exception exception, DateTime failureTime)
+            : this(workID, exception, failureTime, false)
         {
-            WorkID = workID;
+        }
+
+        /// <summary>
+        /// 构造函数（包含取消标志）
+        /// Constructor (with cancellation flag)
+        /// </summary>
+        public WorkFailedEventArgs(WorkID workID, Exception exception, DateTime failureTime, bool isCanceled)
+            : base(workID)
+        {
             Exception = exception;
             FailureTime = failureTime;
+            IsCanceled = isCanceled;
         }
     }
     
@@ -161,19 +209,20 @@ namespace PowerThreadPool_Net20.Results
     /// 线程池启动事件参数
     /// Pool started event arguments
     /// </summary>
-    public class PoolStartedEventArgs : EventArgs
+    public class PoolStartedEventArgs : PoolEventBase
     {
         /// <summary>
         /// 启动时间
         /// Start time
         /// </summary>
         public DateTime StartTime { get; private set; }
-        
+
         /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
         public PoolStartedEventArgs(DateTime startTime)
+            : base(startTime)
         {
             StartTime = startTime;
         }
@@ -183,32 +232,32 @@ namespace PowerThreadPool_Net20.Results
     /// 线程池停止事件参数
     /// Pool stopped event arguments
     /// </summary>
-    public class PoolStoppedEventArgs : EventArgs
+    public class PoolStoppedEventArgs : PoolEventBase
     {
         /// <summary>
         /// 停止时间
         /// Stop time
         /// </summary>
         public DateTime StopTime { get; private set; }
-        
+
         /// <summary>
         /// 完成的工作数
         /// Number of completed works
         /// </summary>
         public int CompletedWorks { get; private set; }
-        
+
         /// <summary>
         /// 失败的工作数
         /// Number of failed works
         /// </summary>
         public int FailedWorks { get; private set; }
-        
+
         /// <summary>
         /// 总工作数
         /// Total number of works
         /// </summary>
         public int TotalWorks => CompletedWorks + FailedWorks;
-        
+
         /// <summary>
         /// 成功率
         /// Success rate
@@ -220,18 +269,19 @@ namespace PowerThreadPool_Net20.Results
                 return TotalWorks > 0 ? (double)CompletedWorks / TotalWorks * 100 : 0;
             }
         }
-        
+
         /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
         public PoolStoppedEventArgs(DateTime stopTime, int completedWorks, int failedWorks)
+            : base(stopTime)
         {
             StopTime = stopTime;
             CompletedWorks = completedWorks;
             FailedWorks = failedWorks;
         }
-        
+
         /// <summary>
         /// 转换为字符串
         /// Convert to string

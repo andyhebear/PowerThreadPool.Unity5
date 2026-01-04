@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Exceptions
 {
+    /*
     /// <summary>
     /// 循环检测异常 / Cycle detected exception
     /// </summary>
@@ -25,4 +26,5 @@ namespace PowerThreadPool_Net20.Exceptions
         /// <param name="innerException">内部异常 / Inner exception</param>
         public CycleDetectedException(string message, Exception innerException) : base(message, innerException) { }
     }
+    */
 }

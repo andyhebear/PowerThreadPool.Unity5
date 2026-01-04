@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
+    /*
     /// <summary>
     /// 是否可获取工作枚举 / Can get work enumeration
     /// </summary>
@@ -27,4 +28,5 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         Disabled = -1,
     }
+    */
 }

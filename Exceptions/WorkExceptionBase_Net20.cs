@@ -3,6 +3,7 @@ using PowerThreadPool_Net20.Works;
 
 namespace PowerThreadPool_Net20.Exceptions
 {
+    /*
     /// <summary>
     /// 工作异常基类 / Base class for work exceptions
     /// </summary>
@@ -31,4 +32,5 @@ namespace PowerThreadPool_Net20.Exceptions
         /// </summary>
         public WorkID ID { get; internal set; }
     }
+    */
 }

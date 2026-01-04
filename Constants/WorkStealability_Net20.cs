@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
+    /*
     /// <summary>
     /// 工作可窃取性枚举 / Work stealability enumeration
     /// </summary>
@@ -17,4 +18,5 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         NotAllowed = 1,
     }
+    */
 }

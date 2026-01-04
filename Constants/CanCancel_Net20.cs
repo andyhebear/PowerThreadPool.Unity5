@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
+    /*
     /// <summary>
     /// 是否可取消枚举 / Can cancel enumeration
     /// </summary>
@@ -17,4 +18,5 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         NotAllowed = 1,
     }
+    */
 }

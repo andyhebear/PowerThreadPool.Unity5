@@ -1417,7 +1417,9 @@ namespace PowerThreadPool_Net20
 
                 if (WorkFailed != null)
                 {
-                    WorkFailedEventArgs args = new WorkFailedEventArgs(workItem.ID,exception,completionTime);
+                    // 判断是否为取消导致的失败
+                    bool isCanceled = (exception is OperationCanceledException);
+                    WorkFailedEventArgs args = new WorkFailedEventArgs(workItem.ID,exception,completionTime,isCanceled);
                     WorkFailed(this,args);
                 }
             }

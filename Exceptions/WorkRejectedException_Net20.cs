@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Exceptions
 {
+    /*
     /// <summary>
     /// 工作被拒绝异常 / Work rejected exception
     /// </summary>
@@ -25,4 +26,5 @@ namespace PowerThreadPool_Net20.Exceptions
         /// <param name="innerException">内部异常 / Inner exception</param>
         public WorkRejectedException(string message, Exception innerException) : base(message, innerException) { }
     }
+    */
 }

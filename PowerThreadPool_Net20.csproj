@@ -59,6 +59,7 @@
     <Compile Include="Exceptions\CycleDetectedException_Net20.cs" />
     <Compile Include="Exceptions\WorkExceptionBase_Net20.cs" />
     <Compile Include="Exceptions\WorkRejectedException_Net20.cs" />
+    <Compile Include="Helpers\InterlockedEnumFlag_Net20.cs" />
     <Compile Include="Helpers\ThreadSafeHelper_Net20.cs" />
     <Compile Include="Logging\ILogger_Net20.cs" />
     <Compile Include="Options\PowerPoolOption_Net20.cs" />

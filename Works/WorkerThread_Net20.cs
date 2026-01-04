@@ -2,6 +2,8 @@ using System;
 using System.Threading;
 using PowerThreadPool_Net20.Results;
 using PowerThreadPool_Net20.Works;
+using PowerThreadPool_Net20.Helpers;
+using PowerThreadPool_Net20.Constants;
 
 namespace PowerThreadPool_Net20.Works
 {
@@ -14,8 +16,9 @@ namespace PowerThreadPool_Net20.Works
         private readonly PowerPool _pool;
         private readonly int _threadId;
         private readonly Thread _thread;
-        private volatile bool _shouldStop;
-        private volatile bool _isIdle;
+        private readonly AtomicFlag _shouldStop = new AtomicFlag();
+        private readonly AtomicFlag _isIdle = new AtomicFlag();
+        private readonly InterlockedFlag<WorkerStates> _workerState = WorkerStates.Idle;
         private WorkID _currentWorkID = WorkID.Empty;
         private DateTime _idleStartTime = DateTime.Now;
 
@@ -29,7 +32,13 @@ namespace PowerThreadPool_Net20.Works
         /// 是否空闲
         /// Whether idle
         /// </summary>
-        public bool IsIdle => _isIdle;
+        public bool IsIdle => _isIdle.Value;
+
+        /// <summary>
+        /// 工作线程状态
+        /// Worker thread state
+        /// </summary>
+        public WorkerStates WorkerState => _workerState.Value;
 
         /// <summary>
         /// 当前工作ID / Current work ID
@@ -63,8 +72,8 @@ namespace PowerThreadPool_Net20.Works
                 Priority = pool.Options.ThreadPriority,
 
             };
-            _shouldStop = false;
-            _isIdle = true;
+            _shouldStop.SetValue(false);
+            _isIdle.SetValue(true);
             _currentWorkID = WorkID.Empty;
         }
 
@@ -86,7 +95,8 @@ namespace PowerThreadPool_Net20.Works
         /// </summary>
         public void Stop()
         {
-            _shouldStop = true;
+            _shouldStop.SetTrue();
+            _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
         }
 
         /// <summary>
@@ -95,7 +105,8 @@ namespace PowerThreadPool_Net20.Works
         /// </summary>
         public void MarkForStop()
         {
-            _shouldStop = true;
+            _shouldStop.SetTrue();
+            _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
         }
 
         /// <summary>
@@ -105,7 +116,8 @@ namespace PowerThreadPool_Net20.Works
         public void MarkForCancellation()
         {
             // 设置停止标志，让线程在下一次检查时退出
-            _shouldStop = true;
+            _shouldStop.SetTrue();
+            _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
         }
 
         /// <summary>
@@ -128,9 +140,10 @@ namespace PowerThreadPool_Net20.Works
         {
             try
             {
-                while (!_shouldStop)
+                while (!_shouldStop.Value)
                 {
-                    _isIdle = true;
+                    _isIdle.SetValue(true);
+                    _workerState.InterlockedValue=(WorkerStates.Idle);
                     _idleStartTime = DateTime.Now; // 更新空闲开始时间
                     _currentWorkID = WorkID.Empty;
 
@@ -140,7 +153,8 @@ namespace PowerThreadPool_Net20.Works
                     if (workItem == null)
                         break;
 
-                    _isIdle = false;
+                    _isIdle.SetValue(false);
+                    _workerState.InterlockedValue=(WorkerStates.Running);
                     _currentWorkID = workItem.ID;
 
                     // 执行工作项
@@ -164,7 +178,8 @@ namespace PowerThreadPool_Net20.Works
             }
             finally
             {
-                _isIdle = true;
+                _isIdle.SetValue(true);
+                _workerState.InterlockedValue=(WorkerStates.Idle);
                 _currentWorkID = WorkID.Empty;
             }
         }

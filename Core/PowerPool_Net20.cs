@@ -9,6 +9,7 @@ using PowerThreadPool_Net20.Works;
 using PowerThreadPool_Net20.Exceptions;
 using PowerThreadPool_Net20.Helpers;
 using PowerThreadPool_Net20.Logging;
+using PowerThreadPool_Net20.Constants;
 
 
 namespace PowerThreadPool_Net20
@@ -19,9 +20,10 @@ namespace PowerThreadPool_Net20
     /// </summary>
     public class PowerPool : IDisposable
     {
-        private bool _disposed = false;
-        private bool _disposing = false;
-        private bool _isStarted = false;
+        private readonly AtomicFlag _disposed = new AtomicFlag();
+        private readonly AtomicFlag _disposing = new AtomicFlag();
+        private readonly AtomicFlag _isStarted = new AtomicFlag();
+        private readonly InterlockedFlag<PoolStates> _poolState = PoolStates.NotRunning;
 
         // 日志记录器
         private ILogger _logger;
@@ -30,10 +32,10 @@ namespace PowerThreadPool_Net20
         private readonly object _lockObject = new object();
         private readonly ManualResetEvent _waitAllSignal = new ManualResetEvent(false);
         private readonly ManualResetEvent _pauseSignal = new ManualResetEvent(true);
-        
+
         // 监控线程
         private Thread _monitorThread;
-        private volatile bool _monitorThreadRunning = false;
+        private readonly AtomicFlag _monitorThreadRunning = new AtomicFlag();
 
         // 线程和队列管理（使用无锁队列）
         private List<WorkerThread> _workerThreads = new List<WorkerThread>();
@@ -76,7 +78,7 @@ namespace PowerThreadPool_Net20
         /// 线程池是否正在运行
         /// Whether the thread pool is running
         /// </summary>
-        public bool IsRunning { get; private set; }
+        public bool IsRunning => _poolState.Value == PoolStates.Running;
 
         /// <summary>
         /// 空闲工作线程数量
@@ -303,7 +305,7 @@ namespace PowerThreadPool_Net20
                 if (IsRunning)
                     return;
 
-                IsRunning = true;
+                _poolState.InterlockedValue=(PoolStates.Running);
                 _startTime = DateTime.Now;
 
                 // 重置统计信息
@@ -343,7 +345,7 @@ namespace PowerThreadPool_Net20
         public void Stop()
         {
             // 在Dispose过程中调用时，允许Stop()执行
-            if (!_disposing)
+            if (!_disposing.Value)
             {
                 CheckDisposed();
             }
@@ -975,7 +977,7 @@ namespace PowerThreadPool_Net20
             lock (_lockObject)
             {
                 // 在锁内再次检查状态，避免竞态条件
-                if (_disposed || _disposing)
+                if (_disposed.Value || _disposing.Value)
                     return;
 
                 // 检查工作队列是否为空
@@ -1023,7 +1025,7 @@ namespace PowerThreadPool_Net20
             if (_monitorThread != null && _monitorThread.IsAlive)
                 return;
 
-            _monitorThreadRunning = true;
+            _monitorThreadRunning.SetTrue();
             _monitorThread = new Thread(MonitorThreadProc)
             {
                 Name = "PowerPool-Monitor",
@@ -1041,7 +1043,7 @@ namespace PowerThreadPool_Net20
             if (_monitorThread == null)
                 return;
 
-            _monitorThreadRunning = false;
+            _monitorThreadRunning.SetFalse();
             
             // 等待监控线程结束
             if (_monitorThread.IsAlive)
@@ -1074,7 +1076,7 @@ namespace PowerThreadPool_Net20
             DateTime lastThreadCleanupTime = DateTime.Now;
             DateTime lastCacheCleanupTime = DateTime.Now;
             
-            while (_monitorThreadRunning && IsRunning)
+            while (_monitorThreadRunning.Value && IsRunning)
             {
                 try
                 {
@@ -1353,7 +1355,7 @@ namespace PowerThreadPool_Net20
         /// </summary>
         internal WorkItem GetWorkItem()
         {
-            while (IsRunning && !_disposed)
+            while (IsRunning && !_disposed.Value)
             {
                 // 首先尝试从无锁队列获取工作项
                 if (_workQueue.TryDequeue(out WorkItem workItem))
@@ -1366,7 +1368,7 @@ namespace PowerThreadPool_Net20
                 lock (_lockObject)
                 {
                     // 双重检查，防止在获取锁的过程中状态发生变化
-                    if (!IsRunning || _disposed)
+                    if (!IsRunning || _disposed.Value)
                         break;
 
                     // 再次检查，可能在等待期间有新工作项加入
@@ -1397,7 +1399,7 @@ namespace PowerThreadPool_Net20
             // 创建ExecuteResult并缓存
             if (exception != null)
             {
-                Interlocked.Increment(ref _failedWorkItems);
+                InterlockedHelper.Add(ref _failedWorkItems, 1);
 
                 // 判断异常类型
                 if (exception is TimeoutException)
@@ -1421,7 +1423,7 @@ namespace PowerThreadPool_Net20
             }
             else
             {
-                Interlocked.Increment(ref _completedWorkItems);
+                InterlockedHelper.Add(ref _completedWorkItems, 1);
                 executeResult = new ExecuteResult(workItem.ID,result,startTime,completionTime);
 
                 if (WorkCompleted != null)
@@ -1465,7 +1467,7 @@ namespace PowerThreadPool_Net20
         /// </summary>
         private void CheckDisposed()
         {
-            if (_disposed || _disposing)
+            if (_disposed.Value || _disposing.Value)
                 throw new ObjectDisposedException("PowerPool");
         }
 
@@ -1500,7 +1502,7 @@ namespace PowerThreadPool_Net20
                 if (!IsRunning)
                     return;
 
-                IsRunning = false;
+                _poolState.InterlockedValue=(PoolStates.NotRunning);
 
                 try
                 {
@@ -1642,11 +1644,11 @@ namespace PowerThreadPool_Net20
         /// </summary>
         protected virtual void Dispose(bool disposing)
         {
-            if (!_disposed)
+            if (!_disposed.Value)
             {
                 if (disposing)
                 {
-                    _disposing = true;
+                    _disposing.SetTrue();
 
                     try
                     {
@@ -1658,7 +1660,7 @@ namespace PowerThreadPool_Net20
                         {
                             _resultCache.Clear();
                         }
-                        
+
                         // 清理超时线程引用
                         lock (_timeoutThreadsLock)
                         {
@@ -1681,15 +1683,15 @@ namespace PowerThreadPool_Net20
                     finally
                     {
                         // 确保状态始终被正确设置
-                        _disposed = true;
-                        _disposing = false;
+                        _disposed.SetTrue();
+                        _disposing.SetFalse();
                         _logger.Info("PowerPool dispose completed");
                     }
                 }
                 else
                 {
                     // 从析构函数调用，不管理其他对象
-                    _disposed = true;
+                    _disposed.SetTrue();
                 }
             }
         }
@@ -1700,7 +1702,7 @@ namespace PowerThreadPool_Net20
         /// <returns>是否成功等待 / Whether wait was successful</returns>
         internal bool WaitForPauseSignal()
         {
-            if (_disposed)
+            if (_disposed.Value)
                 return false;
             
             try

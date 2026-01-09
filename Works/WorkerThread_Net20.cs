@@ -109,16 +109,16 @@ namespace PowerThreadPool_Net20.Works
             _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
         }
 
-        /// <summary>
-        /// 标记为需要取消当前工作
-        /// Mark for cancellation of current work
-        /// </summary>
-        public void MarkForCancellation()
-        {
-            // 设置停止标志，让线程在下一次检查时退出
-            _shouldStop.SetTrue();
-            _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
-        }
+        ///// <summary>
+        ///// 标记为需要取消当前工作
+        ///// Mark for cancellation of current work
+        ///// </summary>
+        //public void MarkForCancellation()
+        //{
+        //    // 设置停止标志，让线程在下一次检查时退出
+        //    _shouldStop.SetTrue();
+        //    _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
+        //}
 
         /// <summary>
         /// 等待线程完成

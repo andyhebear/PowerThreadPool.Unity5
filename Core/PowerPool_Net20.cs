@@ -45,7 +45,7 @@ namespace PowerThreadPool_Net20
         // 结果缓存（用于ExecuteResult落地）
         private Dictionary<WorkID,ExecuteResult> _resultCache = new Dictionary<WorkID,ExecuteResult>();
         private readonly object _resultCacheLock = new object();
-        
+
         // 超时线程跟踪（用于资源管理）
         private Dictionary<WorkID,Thread> _timeoutThreads = new Dictionary<WorkID,Thread>();
         private readonly object _timeoutThreadsLock = new object();
@@ -64,11 +64,9 @@ namespace PowerThreadPool_Net20
 
         // 配置选项
         private PowerPoolOption _options;
-        public PowerPoolOption Options
-        {
+        public PowerPoolOption Options {
             get { return _options; }
-            set
-            {
+            set {
                 _options = value;
                 UpdateWorkerCount();
             }
@@ -84,15 +82,11 @@ namespace PowerThreadPool_Net20
         /// 空闲工作线程数量
         /// Number of idle worker threads
         /// </summary>
-        public int IdleWorkerCount
-        {
-            get
-            {
-                lock (_lockObject)
-                {
+        public int IdleWorkerCount {
+            get {
+                lock (_lockObject) {
                     int count = 0;
-                    foreach (WorkerThread worker in _workerThreads)
-                    {
+                    foreach (WorkerThread worker in _workerThreads) {
                         if (worker.IsIdle)
                             count++;
                     }
@@ -105,12 +99,9 @@ namespace PowerThreadPool_Net20
         /// 等待执行的工作项数量
         /// Number of work items waiting to be executed
         /// </summary>
-        public int WaitingWorkCount
-        {
-            get
-            {
-                lock (_lockObject)
-                {
+        public int WaitingWorkCount {
+            get {
+                lock (_lockObject) {
                     return _workQueue.Count;
                 }
             }
@@ -132,10 +123,8 @@ namespace PowerThreadPool_Net20
         /// 平均执行时间（毫秒）
         /// Average execution time in milliseconds
         /// </summary>
-        public long AverageExecuteTime
-        {
-            get
-            {
+        public long AverageExecuteTime {
+            get {
                 return _completedWorkItems > 0 ? _totalExecuteTime / _completedWorkItems : 0;
             }
         }
@@ -144,10 +133,8 @@ namespace PowerThreadPool_Net20
         /// 线程池运行时间
         /// Thread pool running duration
         /// </summary>
-        public TimeSpan RunningDuration
-        {
-            get
-            {
+        public TimeSpan RunningDuration {
+            get {
                 return IsRunning ? DateTime.Now - _startTime : TimeSpan.Zero;
             }
         }
@@ -156,12 +143,9 @@ namespace PowerThreadPool_Net20
         /// 活跃工作线程数量
         /// Number of active worker threads
         /// </summary>
-        public int ActiveWorkerThreads
-        {
-            get
-            {
-                lock (_lockObject)
-                {
+        public int ActiveWorkerThreads {
+            get {
+                lock (_lockObject) {
                     return _workerThreads.Count;
                 }
             }
@@ -171,12 +155,9 @@ namespace PowerThreadPool_Net20
         /// 缓存结果数量
         /// Number of cached results
         /// </summary>
-        public int CachedResultCount
-        {
-            get
-            {
-                lock (_resultCacheLock)
-                {
+        public int CachedResultCount {
+            get {
+                lock (_resultCacheLock) {
                     return _resultCache.Count;
                 }
             }
@@ -188,39 +169,34 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="workId">工作ID / Work ID</param>
         /// <returns>是否已缓存 / Whether cached</returns>
-        private bool IsWorkResultCached(WorkID workId)
-        {
-            lock (_resultCacheLock)
-            {
+        private bool IsWorkResultCached(WorkID workId) {
+            lock (_resultCacheLock) {
                 return _resultCache.ContainsKey(workId);
             }
         }
-        
+
         /// <summary>
         /// 检查工作项是否已完成（包括在队列中、执行中或已完成）
         /// Check if work item is completed (including queued, executing, or finished)
         /// </summary>
         /// <param name="workId">工作ID / Work ID</param>
         /// <returns>是否已完成 / Whether completed</returns>
-        private bool IsWorkCompleted(WorkID workId)
-        {
+        private bool IsWorkCompleted(WorkID workId) {
             // 如果结果已缓存，说明已完成
             if (IsWorkResultCached(workId))
                 return true;
-                
-            lock (_lockObject)
-            {
+
+            lock (_lockObject) {
                 // 如果还在队列中，说明未完成
                 if (IsWorkQueued(workId))
                     return false;
-                    
+
                 // 检查是否有线程正在执行
-                foreach (WorkerThread worker in _workerThreads)
-                {
+                foreach (WorkerThread worker in _workerThreads) {
                     if (worker.CurrentWorkID != WorkID.Empty && worker.CurrentWorkID.Equals(workId))
                         return false;
                 }
-                
+
                 // 不在队列中，也不在执行，可能已完成但结果被清理，或从未执行
                 return true;
             }
@@ -232,20 +208,16 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="workId">工作ID / Work ID</param>
         /// <returns>是否在队列中 / Whether in queue</returns>
-        private bool IsWorkQueued(WorkID workId)
-        {
-            lock (_lockObject)
-            {
+        private bool IsWorkQueued(WorkID workId) {
+            lock (_lockObject) {
                 // 检查主队列（使用枚举器）
-                foreach (WorkItem work in _workQueue)
-                {
+                foreach (WorkItem work in _workQueue) {
                     if (work != null && work.ID.Equals(workId))
                         return true;
                 }
 
                 // 检查挂起队列（使用枚举器）
-                foreach (WorkItem work in _suspendedWorkQueue)
-                {
+                foreach (WorkItem work in _suspendedWorkQueue) {
                     if (work != null && work.ID.Equals(workId))
                         return true;
                 }
@@ -265,47 +237,42 @@ namespace PowerThreadPool_Net20
         /// 默认构造函数
         /// Default constructor
         /// </summary>
-        public PowerPool() : this(null, null)
-        {
+        public PowerPool() : this(null,null) {
         }
 
         /// <summary>
         /// 使用指定选项的构造函数
         /// Constructor with specified options
         /// </summary>
-        public PowerPool(PowerPoolOption options) : this(options, null)
-        {
+        public PowerPool(PowerPoolOption options) : this(options,null) {
         }
 
         /// <summary>
         /// 使用指定选项和日志记录器的构造函数
         /// Constructor with specified options and logger
         /// </summary>
-        public PowerPool(PowerPoolOption options, ILogger logger)
-        {
+        public PowerPool(PowerPoolOption options,ILogger logger) {
             _options = options ?? new PowerPoolOption();
             _logger = logger ?? LoggerFactory.CreateDefaultLogger();
             _logger.Info($"PowerPool created with MaxThreads: {_options.MaxThreads}, MinThreads: {_options.MinThreads}");
-            UpdateWorkerCount();
+            //UpdateWorkerCount();
         }
 
         /// <summary>
         /// [核心]创建完PowerPool后启动线程池才能工作
         /// Start the thread pool
         /// </summary>
-        public void Start()
-        {
+        public void Start() {
             CheckDisposed();
 
             if (IsRunning)
                 return;
 
-            lock (_lockObject)
-            {
+            lock (_lockObject) {
                 if (IsRunning)
                     return;
 
-                _poolState.InterlockedValue=(PoolStates.Running);
+                _poolState.InterlockedValue = (PoolStates.Running);
                 _startTime = DateTime.Now;
 
                 // 重置统计信息
@@ -331,8 +298,7 @@ namespace PowerThreadPool_Net20
                 _logger.Info($"PowerPool started with {_workerThreads.Count} worker threads");
 
                 // 触发启动事件
-                if (PoolStarted != null)
-                {
+                if (PoolStarted != null) {
                     PoolStarted(this,new PoolStartedEventArgs(DateTime.Now));
                 }
             }
@@ -342,11 +308,9 @@ namespace PowerThreadPool_Net20
         /// 停止线程池
         /// Stop the thread pool
         /// </summary>
-        public void Stop()
-        {
+        public void Stop() {
             // 在Dispose过程中调用时，允许Stop()执行
-            if (!_disposing.Value)
-            {
+            if (!_disposing.Value) {
                 CheckDisposed();
             }
 
@@ -357,8 +321,7 @@ namespace PowerThreadPool_Net20
         /// 暂停线程池
         /// Pause the thread pool
         /// </summary>
-        public void Pause()
-        {
+        public void Pause() {
             CheckDisposed();
             _pauseSignal.Reset();
         }
@@ -367,8 +330,7 @@ namespace PowerThreadPool_Net20
         /// 恢复线程池
         /// Resume the thread pool
         /// </summary>
-        public void Resume()
-        {
+        public void Resume() {
             CheckDisposed();
             _pauseSignal.Set();
         }
@@ -377,10 +339,8 @@ namespace PowerThreadPool_Net20
         /// 队列工作项
         /// Queue a work item
         /// </summary>
-        public WorkID QueueWorkItem(Action action,WorkOption option = null)
-        {
-            return QueueWorkItem<object>(() =>
-            {
+        public WorkID QueueWorkItem(Action action,WorkOption option = null) {
+            return QueueWorkItem<object>(() => {
                 action();
                 return null;
             },option);
@@ -390,8 +350,7 @@ namespace PowerThreadPool_Net20
         /// 队列工作项（带返回值）
         /// Queue a work item with return value
         /// </summary>
-        public WorkID QueueWorkItem<T>(Func<T> func,WorkOption option = null)
-        {
+        public WorkID QueueWorkItem<T>(Func<T> func,WorkOption option = null) {
             CheckDisposed();
 
             option = option ?? new WorkOption();
@@ -401,23 +360,19 @@ namespace PowerThreadPool_Net20
             // 转换优先级：WorkPriority (3=最高) -> 队列索引 (0=最高)
             int queuePriority = ConvertPriority(option.Priority);
 
-            lock (_lockObject)
-            {
+            lock (_lockObject) {
                 // 检查队列限制
-                if (!_options.StartSuspended && _workQueue.Count >= _options.ThreadQueueLimit)
-                {
+                if (!_options.StartSuspended && _workQueue.Count >= _options.ThreadQueueLimit) {
                     _logger.Error($"Thread queue limit ({_options.ThreadQueueLimit}) exceeded. Current queue size: {_workQueue.Count}");
                     throw new InvalidOperationException($"Thread queue limit ({_options.ThreadQueueLimit}) exceeded. Current queue size: {_workQueue.Count}");
                 }
 
-                if (_options.StartSuspended)
-                {
-                    _suspendedWorkQueue.Enqueue(workItem, queuePriority);
+                if (_options.StartSuspended) {
+                    _suspendedWorkQueue.Enqueue(workItem,queuePriority);
                     _logger.Debug($"WorkItem {workID} queued to suspended queue with priority {option.Priority} (index: {queuePriority})");
                 }
-                else
-                {
-                    _workQueue.Enqueue(workItem, queuePriority);
+                else {
+                    _workQueue.Enqueue(workItem,queuePriority);
                     _totalWorkItems++;
 
                     // 重置WaitAll信号，因为有新工作入队
@@ -437,8 +392,7 @@ namespace PowerThreadPool_Net20
         /// 内部队列工作项方法（不加锁，供批量操作使用）
         /// Internal queue work item method (without lock, for batch operations)
         /// </summary>
-        private WorkID QueueWorkItemInternal(Action action,WorkOption option)
-        {
+        private WorkID QueueWorkItemInternal(Action action,WorkOption option) {
             option = option ?? new WorkOption();
             WorkID workID = new WorkID(true);
             WorkItem workItem = new WorkItem(workID,action,option,this);
@@ -447,20 +401,17 @@ namespace PowerThreadPool_Net20
             int queuePriority = ConvertPriority(option.Priority);
 
             // 检查队列限制
-            if (!_options.StartSuspended && _workQueue.Count >= _options.ThreadQueueLimit)
-            {
+            if (!_options.StartSuspended && _workQueue.Count >= _options.ThreadQueueLimit) {
                 _logger.Error($"Thread queue limit ({_options.ThreadQueueLimit}) exceeded. Current queue size: {_workQueue.Count}");
                 throw new InvalidOperationException($"Thread queue limit ({_options.ThreadQueueLimit}) exceeded. Current queue size: {_workQueue.Count}");
             }
 
-            if (_options.StartSuspended)
-            {
-                _suspendedWorkQueue.Enqueue(workItem, queuePriority);
+            if (_options.StartSuspended) {
+                _suspendedWorkQueue.Enqueue(workItem,queuePriority);
                 _logger.Debug($"Internal WorkItem {workID} queued to suspended queue with priority {option.Priority} (index: {queuePriority})");
             }
-            else
-            {
-                _workQueue.Enqueue(workItem, queuePriority);
+            else {
+                _workQueue.Enqueue(workItem,queuePriority);
                 _totalWorkItems++;
 
                 // 重置WaitAll信号，因为有新工作入队
@@ -484,8 +435,7 @@ namespace PowerThreadPool_Net20
         /// <param name="body">循环体 / Loop body</param>
         /// <param name="step">步长 / Step size</param>
         /// <returns>所有工作ID / All work IDs</returns>
-        public WorkID[] ParallelFor(int start,int end,Action<int> body,int step = 1)
-        {
+        public WorkID[] ParallelFor(int start,int end,Action<int> body,int step = 1) {
             CheckDisposed();
 
             if (start >= end)
@@ -498,23 +448,19 @@ namespace PowerThreadPool_Net20
                 throw new ArgumentNullException(nameof(body));
 
             // 计算批次大小，基于可用线程数
-            int totalIterations = (end - start + step - 1) / step;
+            int totalIterations = (end - start + step - 1) / step;          
             int batchSize = Math.Max(1,totalIterations / Math.Max(1,_options.MaxThreads));
-
             var workIds = new List<WorkID>();
-
-            lock (_lockObject)
-            {
-                for (int i = start; i < end; i += batchSize * step)
-                {
+            //开启最大线程数
+            Update2MaxWorkersCount();
+            lock (_lockObject) {
+                for (int i = start; i < end; i += batchSize * step) {
                     int batchStart = i;
                     int batchEnd = Math.Min(i + batchSize * step,end);
 
                     // 创建批处理工作项
-                    WorkID workId = QueueWorkItemInternal(() =>
-                    {
-                        for (int j = batchStart; j < batchEnd; j += step)
-                        {
+                    WorkID workId = QueueWorkItemInternal(() => {
+                        for (int j = batchStart; j < batchEnd; j += step) {
                             body(j);
                         }
                     },null);
@@ -532,48 +478,39 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="workId">工作ID / Work ID</param>
         /// <returns>执行结果 / Execution result</returns>
-        public ExecuteResult GetResult(WorkID workId)
-        {
+        public ExecuteResult GetResult(WorkID workId) {
             CheckDisposed();
 
             // 首先检查结果缓存
-            lock (_resultCacheLock)
-            {
+            lock (_resultCacheLock) {
                 ExecuteResult result;
-                if (_resultCache.TryGetValue(workId,out result))
-                {
+                if (_resultCache.TryGetValue(workId,out result)) {
                     return result;
                 }
             }
 
             // 检查工作是否还在队列中
-            if (IsWorkQueued(workId))
-            {
+            if (IsWorkQueued(workId)) {
                 // 还在队列中
                 throw new InvalidOperationException($"Work {workId} is still queued");
             }
-            
+
             // 检查是否有工作线程正在执行该工作项
             bool isExecuting = false;
-            lock (_lockObject)
-            {
-                foreach (WorkerThread worker in _workerThreads)
-                {
-                    if (worker.CurrentWorkID != WorkID.Empty && worker.CurrentWorkID.Equals(workId))
-                    {
+            lock (_lockObject) {
+                foreach (WorkerThread worker in _workerThreads) {
+                    if (worker.CurrentWorkID != WorkID.Empty && worker.CurrentWorkID.Equals(workId)) {
                         isExecuting = true;
                         break;
                     }
                 }
             }
-            
-            if (isExecuting)
-            {
+
+            if (isExecuting) {
                 // 正在执行中
                 throw new InvalidOperationException($"Work {workId} is still executing");
             }
-            else
-            {
+            else {
                 // 工作已完成但结果不可用（可能是清理了或从未执行）
                 throw new InvalidOperationException($"Work {workId} result is no longer available");
             }
@@ -585,16 +522,14 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="workIds">工作ID数组 / Work ID array</param>
         /// <returns>执行结果数组 / Execution result array</returns>
-        public ExecuteResult[] GetResults(params WorkID[] workIds)
-        {
+        public ExecuteResult[] GetResults(params WorkID[] workIds) {
             CheckDisposed();
 
             if (workIds == null)
                 throw new ArgumentNullException(nameof(workIds));
 
             var results = new ExecuteResult[workIds.Length];
-            for (int i = 0; i < workIds.Length; i++)
-            {
+            for (int i = 0; i < workIds.Length; i++) {
                 results[i] = GetResult(workIds[i]);
             }
             return results;
@@ -607,8 +542,7 @@ namespace PowerThreadPool_Net20
         /// <param name="workId">工作ID / Work ID</param>
         /// <param name="timeoutMs">超时毫秒数 / Timeout in milliseconds</param>
         /// <returns>执行结果 / Execution result</returns>
-        public ExecuteResult GetResultAndWait(WorkID workId,int timeoutMs = 30000)
-        {
+        public ExecuteResult GetResultAndWait(WorkID workId,int timeoutMs = 30000) {
             CheckDisposed();
 
             // 等待工作完成
@@ -625,8 +559,7 @@ namespace PowerThreadPool_Net20
         /// <param name="workIds">工作ID数组 / Work ID array</param>
         /// <param name="timeoutMs">总超时毫秒数 / Total timeout in milliseconds</param>
         /// <returns>执行结果数组 / Execution result array</returns>
-        public ExecuteResult[] GetResultsAndWait(WorkID[] workIds,int timeoutMs = 30000)
-        {
+        public ExecuteResult[] GetResultsAndWait(WorkID[] workIds,int timeoutMs = 30000) {
             CheckDisposed();
 
             if (workIds == null)
@@ -636,8 +569,7 @@ namespace PowerThreadPool_Net20
             DateTime startTime = DateTime.Now;
 
             // 等待所有工作完成
-            foreach (var workId in workIds)
-            {
+            foreach (var workId in workIds) {
                 // 动态计算剩余超时时间
                 long elapsed = (DateTime.Now - startTime).Ticks / TimeSpan.TicksPerMillisecond;
                 int remainingTimeout = Math.Max(0,timeoutMs - (int)elapsed);
@@ -658,12 +590,10 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="workId">工作ID / Work ID</param>
         /// <returns>是否成功清除 / Whether successfully cleared</returns>
-        public bool ClearResult(WorkID workId)
-        {
+        public bool ClearResult(WorkID workId) {
             CheckDisposed();
 
-            lock (_resultCacheLock)
-            {
+            lock (_resultCacheLock) {
                 return _resultCache.Remove(workId);
             }
         }
@@ -674,18 +604,15 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="workIds">工作ID数组 / Work ID array</param>
         /// <returns>成功清除的数量 / Number of successfully cleared items</returns>
-        public int ClearResults(params WorkID[] workIds)
-        {
+        public int ClearResults(params WorkID[] workIds) {
             CheckDisposed();
 
             if (workIds == null)
                 return 0;
 
             int clearedCount = 0;
-            lock (_resultCacheLock)
-            {
-                foreach (WorkID workId in workIds)
-                {
+            lock (_resultCacheLock) {
+                foreach (WorkID workId in workIds) {
                     if (_resultCache.Remove(workId))
                         clearedCount++;
                 }
@@ -699,8 +626,7 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="maxAgeMs">最大保留时间（毫秒）/ Maximum retention time in milliseconds</param>
         /// <returns>清除的项目数量 / Number of cleared items</returns>
-        public int ClearExpiredResults(int maxAgeMs)
-        {
+        public int ClearExpiredResults(int maxAgeMs) {
             CheckDisposed();
 
             if (maxAgeMs <= 0)
@@ -709,16 +635,13 @@ namespace PowerThreadPool_Net20
             DateTime cutoffTime = DateTime.Now.AddMilliseconds(-maxAgeMs);
             List<WorkID> expiredIds = new List<WorkID>();
 
-            lock (_resultCacheLock)
-            {
-                foreach (var kvp in _resultCache)
-                {
+            lock (_resultCacheLock) {
+                foreach (var kvp in _resultCache) {
                     if (kvp.Value.EndTime < cutoffTime)
                         expiredIds.Add(kvp.Key);
                 }
 
-                foreach (WorkID id in expiredIds)
-                {
+                foreach (WorkID id in expiredIds) {
                     _resultCache.Remove(id);
                 }
             }
@@ -730,12 +653,10 @@ namespace PowerThreadPool_Net20
         /// 清除所有执行结果缓存
         /// Clear all execution result cache
         /// </summary>
-        public void ClearAllResults()
-        {
+        public void ClearAllResults() {
             CheckDisposed();
 
-            lock (_resultCacheLock)
-            {
+            lock (_resultCacheLock) {
                 _resultCache.Clear();
             }
         }
@@ -747,14 +668,11 @@ namespace PowerThreadPool_Net20
         /// Get work execution status summary
         /// </summary>
         /// <returns>状态摘要信息 / Status summary information</returns>
-        public WorkStatusSummary GetWorkStatusSummary()
-        {
+        public WorkStatusSummary GetWorkStatusSummary() {
             CheckDisposed();
 
-            lock (_lockObject)
-            {
-                return new WorkStatusSummary
-                {
+            lock (_lockObject) {
+                return new WorkStatusSummary {
                     TotalQueued = WaitingWorkCount,
                     TotalExecuting = ActiveWorkerThreads - IdleWorkerCount,
                     TotalCompleted = _completedWorkItems,
@@ -773,8 +691,7 @@ namespace PowerThreadPool_Net20
         /// <param name="source">源集合 / Source collection</param>
         /// <param name="body">操作体 / Action body</param>
         /// <returns>所有工作ID / All work IDs</returns>
-        public WorkID[] ParallelForEach<T>(IEnumerable<T> source,Action<T> body)
-        {
+        public WorkID[] ParallelForEach<T>(IEnumerable<T> source,Action<T> body) {
             CheckDisposed();
 
             if (source == null)
@@ -790,21 +707,18 @@ namespace PowerThreadPool_Net20
             // 计算批次大小
             int batchSize = Math.Max(1,items.Length / Math.Max(1,this._options.MaxThreads));
             var workIds = new List<WorkID>();
-
-            lock (_lockObject)
-            {
-                for (int i = 0; i < items.Length; i += batchSize)
-                {
+            //开启最大线程数
+            Update2MaxWorkersCount();
+            lock (_lockObject) {
+                for (int i = 0; i < items.Length; i += batchSize) {
                     int batchStart = i;
                     int batchEnd = Math.Min(i + batchSize,items.Length);
                     var batch = new T[batchEnd - batchStart];
                     Array.Copy(items,batchStart,batch,0,batch.Length);
 
                     // 创建批处理工作项
-                    WorkID workId = QueueWorkItemInternal(() =>
-                    {
-                        foreach (var item in batch)
-                        {
+                    WorkID workId = QueueWorkItemInternal(() => {
+                        foreach (var item in batch) {
                             body(item);
                         }
                     },null);
@@ -816,11 +730,9 @@ namespace PowerThreadPool_Net20
             return workIds.ToArray();
         }
 
-        private T[] ToArray<T>(IEnumerable<T> source)
-        {
+        private T[] ToArray<T>(IEnumerable<T> source) {
             List<T> result = new List<T>();
-            foreach (var item in source)
-            {
+            foreach (var item in source) {
                 result.Add(item);
             }
             return result.ToArray();
@@ -833,8 +745,7 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="actions">要执行的操作 / Actions to execute</param>
         /// <returns>所有工作ID / All work IDs</returns>
-        public WorkID[] ParallelInvoke(params Action[] actions)
-        {
+        public WorkID[] ParallelInvoke(params Action[] actions) {
             CheckDisposed();
 
             if (actions == null)
@@ -845,13 +756,10 @@ namespace PowerThreadPool_Net20
 
             var workIds = new WorkID[actions.Length];
 
-            lock (_lockObject)
-            {
-                for (int i = 0; i < actions.Length; i++)
-                {
+            lock (_lockObject) {
+                for (int i = 0; i < actions.Length; i++) {
                     int index = i; // 避免闭包问题
-                    if (actions[index] != null)
-                    {
+                    if (actions[index] != null) {
                         workIds[index] = QueueWorkItemInternal(actions[index],null);
                     }
                 }
@@ -864,23 +772,19 @@ namespace PowerThreadPool_Net20
         /// 等待所有工作完成
         /// Wait for all work to complete
         /// </summary>
-        public void WaitAll()
-        {
+        public void WaitAll() {
             CheckDisposed();
-            
+
             // 首先检查当前是否已经空闲
             CheckPoolIdle();
-            
+
             // 然后等待信号，增加异常处理
-            try
-            {
+            try {
                 _waitAllSignal.WaitOne();
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 // 如果信号已被释放，检查是否真的完成了所有工作
-                if (WaitingWorkCount == 0 && IdleWorkerCount == ActiveWorkerThreads)
-                {
+                if (WaitingWorkCount == 0 && IdleWorkerCount == ActiveWorkerThreads) {
                     return; // 已经完成，直接返回
                 }
                 throw;
@@ -891,38 +795,29 @@ namespace PowerThreadPool_Net20
         /// 等待指定的工作完成
         /// Wait for specified work to complete
         /// </summary>
-        public void WaitWork(WorkID workID,int timeoutMs = 30000)
-        {
+        public void WaitWork(WorkID workID,int timeoutMs = 30000) {
             CheckDisposed();
 
             DateTime startTime = DateTime.Now;
-            while (DateTime.Now - startTime < TimeSpan.FromMilliseconds(timeoutMs))
-            {
+            while (DateTime.Now - startTime < TimeSpan.FromMilliseconds(timeoutMs)) {
                 // 首先检查结果缓存 - 如果有结果说明已完成
-                lock (_resultCacheLock)
-                {
-                    if (_resultCache.ContainsKey(workID))
-                    {
+                lock (_resultCacheLock) {
+                    if (_resultCache.ContainsKey(workID)) {
                         return; // 工作已完成，结果已缓存
                     }
                 }
 
                 bool isCompleted = true;
-                lock (_lockObject)
-                {
+                lock (_lockObject) {
                     // 检查指定的工作项是否在队列中
-                    if (IsWorkQueued(workID))
-                    {
+                    if (IsWorkQueued(workID)) {
                         isCompleted = false;
                     }
 
                     // 检查是否有工作线程正在执行该工作项
-                    if (isCompleted)
-                    {
-                        foreach (WorkerThread worker in _workerThreads)
-                        {
-                            if (worker.CurrentWorkID != WorkID.Empty && worker.CurrentWorkID.Equals(workID))
-                            {
+                    if (isCompleted) {
+                        foreach (WorkerThread worker in _workerThreads) {
+                            if (worker.CurrentWorkID != WorkID.Empty && worker.CurrentWorkID.Equals(workID)) {
                                 isCompleted = false;
                                 break;
                             }
@@ -930,17 +825,14 @@ namespace PowerThreadPool_Net20
                     }
                 }
 
-                if (isCompleted)
-                {
+                if (isCompleted) {
                     // 工作项已完成，但结果可能还未缓存
                     // 给OnWorkCompleted一些时间来缓存结果
                     Thread.Sleep(10);
 
                     // 再次检查结果缓存
-                    lock (_resultCacheLock)
-                    {
-                        if (_resultCache.ContainsKey(workID))
-                        {
+                    lock (_resultCacheLock) {
+                        if (_resultCache.ContainsKey(workID)) {
                             return;
                         }
                     }
@@ -955,11 +847,9 @@ namespace PowerThreadPool_Net20
         /// 清空队列
         /// Clear the queue
         /// </summary>
-        public void ClearQueue()
-        {
+        public void ClearQueue() {
             CheckDisposed();
-            lock (_lockObject)
-            {
+            lock (_lockObject) {
                 _workQueue.Clear();
                 CheckPoolIdle();
             }
@@ -969,49 +859,41 @@ namespace PowerThreadPool_Net20
         /// 检查线程池是否空闲
         /// Check if the thread pool is idle
         /// </summary>
-        private void CheckPoolIdle()
-        {
+        private void CheckPoolIdle() {
             bool isIdle = false;
             bool shouldSetSignal = false;
-            
-            lock (_lockObject)
-            {
+
+            lock (_lockObject) {
                 // 在锁内再次检查状态，避免竞态条件
                 if (_disposed.Value || _disposing.Value)
                     return;
 
                 // 检查工作队列是否为空
                 bool queueEmpty = _workQueue.Count == 0;
-                
+
                 // 检查所有活跃工作线程是否都空闲
                 bool allThreadsIdle = true;
-                foreach (WorkerThread worker in _workerThreads)
-                {
-                    if (!worker.IsIdle)
-                    {
+                foreach (WorkerThread worker in _workerThreads) {
+                    if (!worker.IsIdle) {
                         allThreadsIdle = false;
                         break;
                     }
                 }
-                
+
                 isIdle = queueEmpty && allThreadsIdle;
                 shouldSetSignal = isIdle;
             }
 
             // 在锁外设置信号，避免死锁
-            try
-            {
-                if (shouldSetSignal)
-                {
+            try {
+                if (shouldSetSignal) {
                     _waitAllSignal.Set();
                 }
-                else
-                {
+                else {
                     _waitAllSignal.Reset();
                 }
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 // 忽略对象已释放异常，正常情况
             }
         }
@@ -1020,14 +902,12 @@ namespace PowerThreadPool_Net20
         /// 启动监控线程
         /// Start monitor thread
         /// </summary>
-        private void StartMonitorThread()
-        {
+        private void StartMonitorThread() {
             if (_monitorThread != null && _monitorThread.IsAlive)
                 return;
 
             _monitorThreadRunning.SetTrue();
-            _monitorThread = new Thread(MonitorThreadProc)
-            {
+            _monitorThread = new Thread(MonitorThreadProc) {
                 Name = "PowerPool-Monitor",
                 IsBackground = true
             };
@@ -1038,86 +918,72 @@ namespace PowerThreadPool_Net20
         /// 停止监控线程
         /// Stop monitor thread
         /// </summary>
-        private void StopMonitorThread()
-        {
+        private void StopMonitorThread() {
             if (_monitorThread == null)
                 return;
 
             _monitorThreadRunning.SetFalse();
-            
+
             // 等待监控线程结束
-            if (_monitorThread.IsAlive)
-            {
+            if (_monitorThread.IsAlive) {
                 _monitorThread.Join(1000); // 最多等待1秒
-                if (_monitorThread.IsAlive)
-                {
+                if (_monitorThread.IsAlive) {
                     // 如果线程还在运行，强制中断
-                    try
-                    {
+                    try {
 #if !NET20
                         _monitorThread.Abort();
 #endif
                     }
-                    catch
-                    {
+                    catch {
                         // 忽略中断异常
                     }
                 }
             }
             _monitorThread = null;
-        }          
+        }
 
         /// <summary>
         /// 监控线程主循环
         /// Monitor thread main procedure
         /// </summary>
-        private void MonitorThreadProc()
-        {
+        private void MonitorThreadProc() {
             DateTime lastThreadCleanupTime = DateTime.Now;
             DateTime lastCacheCleanupTime = DateTime.Now;
-            
-            while (_monitorThreadRunning.Value && IsRunning)
-            {
-                try
-                {
+
+            while (_monitorThreadRunning.Value && IsRunning) {
+                try {
                     // 检查线程池空闲状态
                     CheckPoolIdle();
-                                        
+
                     // 每30秒执行一次线程回收检查
-                    if (DateTime.Now - lastThreadCleanupTime >= TimeSpan.FromSeconds(30))
-                    {
+                    if (DateTime.Now - lastThreadCleanupTime >= TimeSpan.FromSeconds(30)) {
                         CleanupIdleThreads();
                         lastThreadCleanupTime = DateTime.Now;
                     }
-                    
+
                     // 每60秒执行一次结果缓存清理
-                    if (DateTime.Now - lastCacheCleanupTime >= TimeSpan.FromSeconds(60))
-                    {
+                    if (DateTime.Now - lastCacheCleanupTime >= TimeSpan.FromSeconds(60)) {
                         CleanupExpiredResults();
                         lastCacheCleanupTime = DateTime.Now;
                     }
-                    
+
                     // 使用更高效的等待机制，减少CPU消耗
                     // 同时允许被中断以快速响应取消请求
-                    Monitor.Wait(_lockObject, 50);
+                    Monitor.Wait(_lockObject,50);
                 }
-                catch (ThreadAbortException)
-                {
+                catch (ThreadAbortException) {
                     // 线程被中止，正常退出
                     break;
                 }
-                catch (ThreadInterruptedException)
-                {
+                catch (ThreadInterruptedException) {
                     // 线程被中断，正常退出
                     break;
                 }
-                catch (SynchronizationLockException)
-                {
+                catch (SynchronizationLockException) {
                     // 如果没有获得锁，使用Thread.Sleep作为备选
                     Thread.Sleep(50);
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     // 记录详细的异常日志
 #if UNITY
                     UnityEngine.Debug.LogWarning($"PowerPool monitor thread error: {ex.Message}\nStack Trace: {ex.StackTrace}");
@@ -1132,38 +998,31 @@ namespace PowerThreadPool_Net20
         /// 清理过期的结果缓存
         /// Cleanup expired result cache
         /// </summary>
-        private void CleanupExpiredResults()
-        {
-            try
-            {
+        private void CleanupExpiredResults() {
+            try {
                 if (!_options.EnableResultCacheExpiration || _options.ResultCacheExpiration <= TimeSpan.Zero)
                     return;
 
-                lock (_resultCacheLock)
-                {
+                lock (_resultCacheLock) {
                     DateTime now = DateTime.Now;
                     List<WorkID> expiredKeys = new List<WorkID>();
 
                     // 查找所有过期的结果
-                    foreach (var kvp in _resultCache)
-                    {
+                    foreach (var kvp in _resultCache) {
                         TimeSpan age = now - kvp.Value.EndTime;
-                        if (age >= _options.ResultCacheExpiration)
-                        {
+                        if (age >= _options.ResultCacheExpiration) {
                             expiredKeys.Add(kvp.Key);
                         }
                     }
 
                     // 清理过期结果
-                    foreach (var key in expiredKeys)
-                    {
+                    foreach (var key in expiredKeys) {
                         _resultCache.Remove(key);
                     }
 
                     // 记录清理信息（可选）
 #if DEBUG
-                    if (expiredKeys.Count > 0)
-                    {
+                    if (expiredKeys.Count > 0) {
 #if UNITY
                         UnityEngine.Debug.Log($"PowerPool cleaned up {expiredKeys.Count} expired results from cache");
 #else
@@ -1173,8 +1032,7 @@ namespace PowerThreadPool_Net20
 #endif
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 // 记录缓存清理异常
 #if UNITY
                 UnityEngine.Debug.LogWarning($"PowerPool cache cleanup error: {ex.Message}\nStack Trace: {ex.StackTrace}");
@@ -1188,51 +1046,42 @@ namespace PowerThreadPool_Net20
         /// 清理空闲线程
         /// Clean up idle threads
         /// </summary>
-        private void CleanupIdleThreads()
-        {
-            lock (_lockObject)
-            {
+        private void CleanupIdleThreads() {
+            lock (_lockObject) {
                 // 确保不低于最小线程数
                 if (_workerThreads.Count <= _options.MinThreads)
                     return;
-                
+
                 List<WorkerThread> threadsToRemove = new List<WorkerThread>();
                 DateTime now = DateTime.Now;
-                
+
                 // 查找超过空闲超时时间的线程
-                foreach (WorkerThread worker in _workerThreads)
-                {
-                    if (worker.IsIdle && now - worker.IdleStartTime >= _options.IdleThreadTimeout)
-                    {
+                foreach (WorkerThread worker in _workerThreads) {
+                    if (worker.IsIdle && now - worker.IdleStartTime >= _options.IdleThreadTimeout) {
                         threadsToRemove.Add(worker);
-                        
+
                         // 确保不低于最小线程数
                         if (_workerThreads.Count - threadsToRemove.Count <= _options.MinThreads)
                             break;
                     }
                 }
-                
+
                 // 停止并移除这些线程
-                foreach (WorkerThread worker in threadsToRemove)
-                {
+                foreach (WorkerThread worker in threadsToRemove) {
                     worker.Stop();
                     _workerThreads.Remove(worker);
                 }
-                
+
                 // 通知所有等待的线程
-                if (threadsToRemove.Count > 0)
-                {
+                if (threadsToRemove.Count > 0) {
                     Monitor.PulseAll(_lockObject);
-                    
+
                     // 在锁外等待线程真正停止
-                    foreach (var worker in threadsToRemove)
-                    {
-                        try
-                        {
+                    foreach (var worker in threadsToRemove) {
+                        try {
                             worker.Thread.Join(100); // 最多等待100ms
                         }
-                        catch (Exception ex)
-                        {
+                        catch (Exception ex) {
 #if UNITY
                             UnityEngine.Debug.LogWarning($"Error joining worker thread {worker.ThreadId}: {ex.Message}");
 #else
@@ -1248,12 +1097,10 @@ namespace PowerThreadPool_Net20
         /// 创建工作线程
         /// Create worker threads
         /// </summary>
-        private void CreateWorkerThreads()
-        {
-            int threadCount = _options.MaxThreads;
+        private void CreateWorkerThreads() {
+            int threadCount = _options.MinThreads;
 
-            for (int i = 0; i < threadCount; i++)
-            {
+            for (int i = 0; i < threadCount; i++) {
                 WorkerThread worker = new WorkerThread(this,i);
                 _workerThreads.Add(worker);
                 worker.Start();
@@ -1264,85 +1111,93 @@ namespace PowerThreadPool_Net20
         /// 更新工作线程数量
         /// Update worker thread count
         /// </summary>
-        private void UpdateWorkerCount()
-        {
+        private void UpdateWorkerCount() {
             if (!IsRunning)
                 return;
 
-            lock (_lockObject)
-            {
+            lock (_lockObject) {
                 int currentCount = _workerThreads.Count;
-                int targetCount = _options.MaxThreads;
-
-                if (targetCount > currentCount)
-                {
+                int maxCount = _options.MaxThreads;
+                int minCount = _options.MinThreads;
+                if (minCount > currentCount) {
+                    // 确保不低于最小线程数
                     // 添加新线程
-                    for (int i = currentCount; i < targetCount; i++)
-                    {
+                    for (int i = currentCount; i < minCount; i++) {
                         WorkerThread worker = new WorkerThread(this,i);
                         _workerThreads.Add(worker);
                         worker.Start();
                     }
                 }
-                else if (targetCount < currentCount)
-                {
-                    // 确保不低于最小线程数
+                else if (maxCount < currentCount) {
                     int minAllowed = _options.MinThreads;
                     if (currentCount <= minAllowed)
                         return;
-                        
+
                     // 减少线程（标记要停止的线程并等待完成）
-                    int targetAfterReduction = Math.Max(targetCount, minAllowed);
+                    int targetAfterReduction = Math.Max(maxCount,minAllowed);
                     int toStop = currentCount - targetAfterReduction;
                     var threadsToStop = new List<WorkerThread>();
-                    
+
                     // 从末尾开始标记要停止的线程
-                    for (int i = 0; i < toStop && _workerThreads.Count > minAllowed; i++)
-                    {
+                    for (int i = 0; i < toStop && _workerThreads.Count > minAllowed; i++) {
                         int index = _workerThreads.Count - 1;
                         WorkerThread worker = _workerThreads[index];
                         worker.MarkForStop();
                         threadsToStop.Add(worker);
                         _workerThreads.RemoveAt(index); // 立即从列表中移除
                     }
-                    
+
                     // 通知所有等待的线程
                     Monitor.PulseAll(_lockObject);
-                    
+
                     // 在锁外等待线程真正停止
-                    foreach (var worker in threadsToStop)
-                    {
+                    foreach (var worker in threadsToStop) {
                         worker.Join();
                     }
                 }
             }
         }
+        /// <summary>
+        /// 使用最大线程数
+        /// </summary>
+        private void Update2MaxWorkersCount() {
+            if (!IsRunning)
+                return;
 
+            lock (_lockObject) {
+                int currentCount = _workerThreads.Count;
+                int maxCount = _options.MaxThreads;         
+                if (maxCount > currentCount) {
+                    // 确保最大线程数
+                    // 添加新线程
+                    for (int i = currentCount; i < maxCount; i++) {
+                        WorkerThread worker = new WorkerThread(this,i);
+                        _workerThreads.Add(worker);
+                        worker.Start();
+                    }
+                }
+            }
+        }
         /// <summary>
         /// 启动挂起的工作
         /// Start suspended work
         /// </summary>
-        private void StartSuspendedWork()
-        {
+        private void StartSuspendedWork() {
             List<WorkItem> suspendedItems = new List<WorkItem>();
-            
+
             // 从无锁队列中提取所有挂起的工作项
-            while (_suspendedWorkQueue.TryDequeue(out WorkItem workItem))
-            {
+            while (_suspendedWorkQueue.TryDequeue(out WorkItem workItem)) {
                 suspendedItems.Add(workItem);
             }
 
-            if (suspendedItems.Count > 0)
-            {
-                lock (_lockObject)
-                {
+            if (suspendedItems.Count > 0) {
+                lock (_lockObject) {
                     // 将挂起的工作项移到主队列
-                    foreach (var item in suspendedItems)
-                    {
-                        _workQueue.Enqueue(item, (int)item.Option.Priority);
+                    foreach (var item in suspendedItems) {
+                        _workQueue.Enqueue(item,(int)item.Option.Priority);
                         _totalWorkItems++;
                     }
-                    
+
                     Monitor.PulseAll(_lockObject);
                     _logger.Info($"Resumed {suspendedItems.Count} suspended work items");
                 }
@@ -1353,33 +1208,28 @@ namespace PowerThreadPool_Net20
         /// 工作线程获取工作项
         /// Worker thread gets work item
         /// </summary>
-        internal WorkItem GetWorkItem()
-        {
-            while (IsRunning && !_disposed.Value)
-            {
+        internal WorkItem GetWorkItem() {
+            while (IsRunning && !_disposed.Value) {
                 // 首先尝试从无锁队列获取工作项
-                if (_workQueue.TryDequeue(out WorkItem workItem))
-                {
+                if (_workQueue.TryDequeue(out WorkItem workItem)) {
                     _logger.Debug($"WorkItem {workItem.ID} dequeued for execution");
                     return workItem;
                 }
 
                 // 如果队列为空，等待一段时间后重试
-                lock (_lockObject)
-                {
+                lock (_lockObject) {
                     // 双重检查，防止在获取锁的过程中状态发生变化
                     if (!IsRunning || _disposed.Value)
                         break;
 
                     // 再次检查，可能在等待期间有新工作项加入
-                    if (_workQueue.TryDequeue(out workItem))
-                    {
+                    if (_workQueue.TryDequeue(out workItem)) {
                         _logger.Debug($"WorkItem {workItem.ID} dequeued after wait");
                         return workItem;
                     }
 
                     // 等待新工作项的通知
-                    Monitor.Wait(_lockObject, 50);
+                    Monitor.Wait(_lockObject,50);
                 }
             }
 
@@ -1390,46 +1240,38 @@ namespace PowerThreadPool_Net20
         /// 工作完成回调
         /// Work completed callback
         /// </summary>
-        internal void OnWorkCompleted(WorkItem workItem,object result,Exception exception)
-        {
+        internal void OnWorkCompleted(WorkItem workItem,object result,Exception exception) {
             DateTime completionTime = DateTime.Now;
             DateTime startTime = workItem.CreateTime;
             ExecuteResult executeResult = null;
 
             // 创建ExecuteResult并缓存
-            if (exception != null)
-            {
-                InterlockedHelper.Add(ref _failedWorkItems, 1);
+            if (exception != null) {
+                InterlockedHelper.Add(ref _failedWorkItems,1);
 
                 // 判断异常类型
-                if (exception is TimeoutException)
-                {
+                if (exception is TimeoutException) {
                     executeResult = new ExecuteResult(workItem.ID,startTime,completionTime,exception);
                 }
-                else if (exception is OperationCanceledException)
-                {
+                else if (exception is OperationCanceledException) {
                     executeResult = new ExecuteResult(workItem.ID,startTime,completionTime);
                 }
-                else
-                {
+                else {
                     executeResult = new ExecuteResult(workItem.ID,exception,startTime,completionTime);
                 }
 
-                if (WorkFailed != null)
-                {
+                if (WorkFailed != null) {
                     // 判断是否为取消导致的失败
                     bool isCanceled = (exception is OperationCanceledException);
                     WorkFailedEventArgs args = new WorkFailedEventArgs(workItem.ID,exception,completionTime,isCanceled);
                     WorkFailed(this,args);
                 }
             }
-            else
-            {
-                InterlockedHelper.Add(ref _completedWorkItems, 1);
+            else {
+                InterlockedHelper.Add(ref _completedWorkItems,1);
                 executeResult = new ExecuteResult(workItem.ID,result,startTime,completionTime);
 
-                if (WorkCompleted != null)
-                {
+                if (WorkCompleted != null) {
                     WorkCompletedEventArgs args = new WorkCompletedEventArgs(workItem.ID,result,completionTime);
                     WorkCompleted(this,args);
                 }
@@ -1439,12 +1281,10 @@ namespace PowerThreadPool_Net20
             CacheExecuteResult(workItem.ID,executeResult);
 
             // 记录完成日志
-            if (exception != null)
-            {
+            if (exception != null) {
                 _logger.Warning($"WorkItem {workItem.ID} failed with exception: {exception.Message}");
             }
-            else
-            {
+            else {
                 _logger.Debug($"WorkItem {workItem.ID} completed successfully");
             }
 
@@ -1455,20 +1295,17 @@ namespace PowerThreadPool_Net20
         /// 缓存执行结果
         /// Cache execution result
         /// </summary>
-        private void CacheExecuteResult(WorkID workId,ExecuteResult result)
-        {
-            lock (_resultCacheLock)
-            {
+        private void CacheExecuteResult(WorkID workId,ExecuteResult result) {
+            lock (_resultCacheLock) {
                 _resultCache[workId] = result;
             }
         }
-        
+
         /// <summary>
         /// 检查是否已释放
         /// Check if disposed
         /// </summary>
-        private void CheckDisposed()
-        {
+        private void CheckDisposed() {
             if (_disposed.Value || _disposing.Value)
                 throw new ObjectDisposedException("PowerPool");
         }
@@ -1482,8 +1319,7 @@ namespace PowerThreadPool_Net20
         /// </summary>
         /// <param name="priority">工作优先级</param>
         /// <returns>队列优先级索引</returns>
-        private int ConvertPriority(WorkPriority priority)
-        {
+        private int ConvertPriority(WorkPriority priority) {
             // WorkPriority: Low=0, Normal=1, High=2, Critical=3
             // LockFreePriorityQueue: 0=最高(Critical), 1=高, 2=普通, 3=低
             // 转换公式: 3 - WorkPriority值
@@ -1494,32 +1330,26 @@ namespace PowerThreadPool_Net20
         /// 内部停止方法（Dispose调用，不检查Disposed状态）
         /// Internal stop method (called by Dispose, without disposed check)
         /// </summary>
-        private void InternalStop()
-        {
+        private void InternalStop() {
             if (!IsRunning)
                 return;
 
-            lock (_lockObject)
-            {
+            lock (_lockObject) {
                 if (!IsRunning)
                     return;
 
-                _poolState.InterlockedValue=(PoolStates.NotRunning);
+                _poolState.InterlockedValue = (PoolStates.NotRunning);
 
-                try
-                {
+                try {
                     // 停止监控线程
                     StopMonitorThread();
 
                     // 停止所有工作线程
-                    foreach (WorkerThread worker in _workerThreads)
-                    {
-                        try
-                        {
+                    foreach (WorkerThread worker in _workerThreads) {
+                        try {
                             worker.Stop();
                         }
-                        catch (Exception ex)
-                        {
+                        catch (Exception ex) {
 #if UNITY
                             UnityEngine.Debug.LogWarning($"Error stopping worker thread {worker.ThreadId}: {ex.Message}");
 #else
@@ -1529,15 +1359,12 @@ namespace PowerThreadPool_Net20
                     }
 
                     // 等待所有线程完成，设置更长的超时时间
-                    foreach (WorkerThread worker in _workerThreads)
-                    {
-                        try
-                        {
+                    foreach (WorkerThread worker in _workerThreads) {
+                        try {
                             worker.Join();
 
                             // 检查线程是否真的停止了
-                            if (worker.Thread != null && worker.Thread.IsAlive)
-                            {
+                            if (worker.Thread != null && worker.Thread.IsAlive) {
 #if UNITY
                                 Debug.LogWarning($"Worker thread {worker.ThreadId} did not stop gracefully after timeout");
 #else
@@ -1545,8 +1372,7 @@ namespace PowerThreadPool_Net20
 #endif
                             }
                         }
-                        catch (Exception ex)
-                        {
+                        catch (Exception ex) {
 #if UNITY
                             UnityEngine.Debug.LogWarning($"Error joining worker thread {worker.ThreadId}: {ex.Message}");
 #else
@@ -1558,14 +1384,11 @@ namespace PowerThreadPool_Net20
                     _workerThreads.Clear();
 
                     // 触发停止事件
-                    if (PoolStopped != null)
-                    {
-                        try
-                        {
+                    if (PoolStopped != null) {
+                        try {
                             PoolStopped(this,new PoolStoppedEventArgs(DateTime.Now,_completedWorkItems,_failedWorkItems));
                         }
-                        catch (Exception ex)
-                        {
+                        catch (Exception ex) {
 #if UNITY
                             UnityEngine.Debug.LogWarning($"Error triggering PoolStopped event: {ex.Message}");
 #else
@@ -1574,8 +1397,7 @@ namespace PowerThreadPool_Net20
                         }
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
 #if UNITY
                     UnityEngine.Debug.LogWarning($"Error during InternalStop(): {ex.Message}");
 #else
@@ -1589,8 +1411,7 @@ namespace PowerThreadPool_Net20
         /// 释放资源
         /// Dispose resources
         /// </summary>
-        public void Dispose()
-        {
+        public void Dispose() {
             _logger.Info($"PowerPool disposing. Final stats: Completed: {_completedWorkItems}, Failed: {_failedWorkItems}");
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -1600,41 +1421,31 @@ namespace PowerThreadPool_Net20
         /// 安全释放WaitHandle
         /// Safely dispose WaitHandle
         /// </summary>
-        private void SafeDisposeWaitHandle(WaitHandle handle)
-        {
-            if (handle != null)
-            {
-                try
-                {
+        private void SafeDisposeWaitHandle(WaitHandle handle) {
+            if (handle != null) {
+                try {
                     // 直接调用Close()方法，这是WaitHandle的标准释放方式
                     handle.Close();
                 }
-                catch (ObjectDisposedException)
-                {
+                catch (ObjectDisposedException) {
                     // 忽略已经被释放的情况
                 }
-                catch (NotSupportedException)
-                {
+                catch (NotSupportedException) {
                     // 某些WaitHandle实现可能不支持Close
-                    try
-                    {
+                    try {
                         var disposable = handle as IDisposable;
-                        if (disposable != null)
-                        {
+                        if (disposable != null) {
                             disposable.Dispose();
                         }
                     }
-                    catch (ObjectDisposedException)
-                    {
+                    catch (ObjectDisposedException) {
                         // 忽略已经被释放的情况
                     }
-                    catch (Exception)
-                    {
+                    catch (Exception) {
                         // 忽略其他释放异常，确保Dispose过程不会中断
                     }
                 }
-                catch (Exception)
-                {
+                catch (Exception) {
                     // 忽略其他释放异常，确保Dispose过程不会中断
                 }
             }
@@ -1644,28 +1455,22 @@ namespace PowerThreadPool_Net20
         /// 释放资源
         /// Dispose resources
         /// </summary>
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed.Value)
-            {
-                if (disposing)
-                {
+        protected virtual void Dispose(bool disposing) {
+            if (!_disposed.Value) {
+                if (disposing) {
                     _disposing.SetTrue();
 
-                    try
-                    {
+                    try {
                         // 先停止线程池，确保所有线程都正确停止
                         InternalStop();
 
                         // 清理结果缓存
-                        lock (_resultCacheLock)
-                        {
+                        lock (_resultCacheLock) {
                             _resultCache.Clear();
                         }
 
                         // 清理超时线程引用
-                        lock (_timeoutThreadsLock)
-                        {
+                        lock (_timeoutThreadsLock) {
                             _timeoutThreads.Clear();
                         }
 
@@ -1677,21 +1482,18 @@ namespace PowerThreadPool_Net20
                         SafeDisposeWaitHandle(_waitAllSignal);
                         SafeDisposeWaitHandle(_pauseSignal);
                     }
-                    catch (Exception ex)
-                    {
+                    catch (Exception ex) {
                         // 记录Dispose过程中的异常，但不抛出
-                        _logger.Error($"PowerPool dispose error: {ex.Message}", ex);
+                        _logger.Error($"PowerPool dispose error: {ex.Message}",ex);
                     }
-                    finally
-                    {
+                    finally {
                         // 确保状态始终被正确设置
                         _disposed.SetTrue();
                         _disposing.SetFalse();
                         _logger.Info("PowerPool dispose completed");
                     }
                 }
-                else
-                {
+                else {
                     // 从析构函数调用，不管理其他对象
                     _disposed.SetTrue();
                 }
@@ -1702,17 +1504,14 @@ namespace PowerThreadPool_Net20
         /// 等待暂停信号的公共接口 / Public interface for waiting pause signal
         /// </summary>
         /// <returns>是否成功等待 / Whether wait was successful</returns>
-        internal bool WaitForPauseSignal()
-        {
+        internal bool WaitForPauseSignal() {
             if (_disposed.Value)
                 return false;
-            
-            try
-            {
+
+            try {
                 return _pauseSignal.WaitOne(0); // 非阻塞检查
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 return false;
             }
         }
@@ -1721,12 +1520,9 @@ namespace PowerThreadPool_Net20
         /// 注册超时线程
         /// Register timeout thread
         /// </summary>
-        internal void RegisterTimeoutThread(WorkID workId, Thread thread)
-        {
-            lock (_timeoutThreadsLock)
-            {
-                if (!_timeoutThreads.ContainsKey(workId))
-                {
+        internal void RegisterTimeoutThread(WorkID workId,Thread thread) {
+            lock (_timeoutThreadsLock) {
+                if (!_timeoutThreads.ContainsKey(workId)) {
                     _timeoutThreads[workId] = thread;
                 }
             }
@@ -1736,21 +1532,16 @@ namespace PowerThreadPool_Net20
         /// 清理死亡的超时线程
         /// Cleanup dead timeout threads
         /// </summary>
-        private void CleanupTimeoutThreads()
-        {
-            lock (_timeoutThreadsLock)
-            {
+        private void CleanupTimeoutThreads() {
+            lock (_timeoutThreadsLock) {
                 var deadThreads = new List<WorkID>();
-                foreach (var kvp in _timeoutThreads)
-                {
-                    if (kvp.Value == null || !kvp.Value.IsAlive)
-                    {
+                foreach (var kvp in _timeoutThreads) {
+                    if (kvp.Value == null || !kvp.Value.IsAlive) {
                         deadThreads.Add(kvp.Key);
                     }
                 }
-                
-                foreach (var id in deadThreads)
-                {
+
+                foreach (var id in deadThreads) {
                     _timeoutThreads.Remove(id);
                 }
             }
@@ -1760,13 +1551,11 @@ namespace PowerThreadPool_Net20
         /// 添加执行时间统计 / Add execution time statistics
         /// </summary>
         /// <param name="executeTime">执行时间 / Execution time</param>
-        internal void AddExecuteTime(long executeTime)
-        {
+        internal void AddExecuteTime(long executeTime) {
             InterlockedHelper.Add(ref _totalExecuteTime,executeTime);
-            
+
             // 定期清理超时线程（每100次执行清理一次）
-            if (_completedWorkItems % 100 == 0)
-            {
+            if (_completedWorkItems % 100 == 0) {
                 CleanupTimeoutThreads();
             }
         }
@@ -1775,8 +1564,7 @@ namespace PowerThreadPool_Net20
         /// 析构函数
         /// Destructor
         /// </summary>
-        ~PowerPool()
-        {
+        ~PowerPool() {
             Dispose(false);
         }
     }

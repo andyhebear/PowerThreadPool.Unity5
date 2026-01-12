@@ -3,36 +3,36 @@ using PowerThreadPool_Net20.Works;
 
 namespace PowerThreadPool_Net20.Results
 {
-    /// <summary>
-    /// 执行状态
-    /// Execution status
-    /// </summary>
-    public enum ExecutionStatus
-    {
         /// <summary>
-        /// 成功
-        /// Success
+        /// 执行状态
+        /// Execution status
         /// </summary>
-        Success,
-        
-        /// <summary>
-        /// 失败
-        /// Failed
-        /// </summary>
-        Failed,
-        
-        /// <summary>
-        /// 取消
-        /// Canceled
-        /// </summary>
-        Canceled,
-        
-        /// <summary>
-        /// 超时
-        /// Timeout
-        /// </summary>
-        Timeout
-    }
+        public enum ExecutionStatus
+        {
+            /// <summary>
+            /// 成功
+            /// Success
+            /// </summary>
+            Success,
+            
+            /// <summary>
+            /// 失败
+            /// Failed
+            /// </summary>
+            Failed,
+            
+            /// <summary>
+            /// 取消
+            /// Canceled
+            /// </summary>
+            Canceled,
+            
+            /// <summary>
+            /// 超时
+            /// Timeout
+            /// </summary>
+            Timeout
+        }
     
     /// <summary>
     /// 执行结果基类
@@ -46,6 +46,7 @@ namespace PowerThreadPool_Net20.Results
         private readonly DateTime _endTime;
         private readonly object _result;
         private readonly Exception _exception;
+        private readonly int _retryCount;
         
         /// <summary>
         /// 工作ID
@@ -90,6 +91,12 @@ namespace PowerThreadPool_Net20.Results
         public Exception Exception => _exception;
         
         /// <summary>
+        /// 重试次数
+        /// Retry count
+        /// </summary>
+        public int RetryCount => _retryCount;
+        
+        /// <summary>
         /// 是否成功
         /// Whether successful
         /// </summary>
@@ -118,6 +125,15 @@ namespace PowerThreadPool_Net20.Results
         /// Constructor (success)
         /// </summary>
         public ExecuteResult(WorkID id, object result, DateTime startTime, DateTime endTime)
+            : this(id, result, startTime, endTime, 0)
+        {
+        }
+
+        /// <summary>
+        /// 构造函数（成功，带重试次数）
+        /// Constructor (success, with retry count)
+        /// </summary>
+        public ExecuteResult(WorkID id, object result, DateTime startTime, DateTime endTime, int retryCount)
         {
             _id = id;
             _status = ExecutionStatus.Success;
@@ -125,6 +141,7 @@ namespace PowerThreadPool_Net20.Results
             _startTime = startTime;
             _endTime = endTime;
             _exception = null;
+            _retryCount = retryCount;
         }
         
         /// <summary>
@@ -132,6 +149,15 @@ namespace PowerThreadPool_Net20.Results
         /// Constructor (failed)
         /// </summary>
         public ExecuteResult(WorkID id, Exception exception, DateTime startTime, DateTime endTime)
+            : this(id, exception, startTime, endTime, 0)
+        {
+        }
+
+        /// <summary>
+        /// 构造函数（失败，带重试次数）
+        /// Constructor (failed, with retry count)
+        /// </summary>
+        public ExecuteResult(WorkID id, Exception exception, DateTime startTime, DateTime endTime, int retryCount)
         {
             _id = id;
             _status = ExecutionStatus.Failed;
@@ -139,6 +165,7 @@ namespace PowerThreadPool_Net20.Results
             _startTime = startTime;
             _endTime = endTime;
             _exception = exception;
+            _retryCount = retryCount;
         }
         
         /// <summary>
@@ -153,6 +180,7 @@ namespace PowerThreadPool_Net20.Results
             _startTime = startTime;
             _endTime = endTime;
             _exception = null;
+            _retryCount = 0;
         }
         
         /// <summary>
@@ -167,6 +195,7 @@ namespace PowerThreadPool_Net20.Results
             _startTime = startTime;
             _endTime = endTime;
             _exception = timeoutException;
+            _retryCount = 0;
         }
         
         /// <summary>
@@ -175,7 +204,7 @@ namespace PowerThreadPool_Net20.Results
         /// </summary>
         public override string ToString()
         {
-            return $"ExecuteResult[ID={_id}, Status={_status}, Duration={Duration.TotalMilliseconds:F1}ms Result={_result}]";
+            return $"ExecuteResult[ID={_id}, Status={_status}, RetryCount={_retryCount}, Duration={Duration.TotalMilliseconds:F1}ms Result={_result}]";
         }
     }
 }

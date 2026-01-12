@@ -269,21 +269,22 @@ namespace PowerThreadPool_Net20.Logging
     /// 组合日志记录器（同时输出到控制台和文件）
     /// Composite logger (outputs to both console and file)
     /// </summary>
-    public class CompositeLogger : ILogger
+    public class CompositeLogger : ILogger, IDisposable
     {
         private readonly ILogger[] _loggers;
+        private bool _disposed = false;
 
-        public LogLevel MinLevel 
-        { 
-            get => _loggers[0]?.MinLevel ?? LogLevel.Info; 
-            set 
-            { 
+        public LogLevel MinLevel
+        {
+            get => _loggers[0]?.MinLevel ?? LogLevel.Info;
+            set
+            {
                 foreach (var logger in _loggers)
                 {
                     if (logger != null)
                         logger.MinLevel = value;
                 }
-            } 
+            }
         }
 
         /// <summary>
@@ -316,6 +317,38 @@ namespace PowerThreadPool_Net20.Logging
         public void Warning(string message) => Log(LogLevel.Warning, message);
         public void Error(string message, Exception exception = null) => Log(LogLevel.Error, message, exception);
         public void Critical(string message, Exception exception = null) => Log(LogLevel.Critical, message, exception);
+
+        /// <summary>
+        /// 释放所有内部日志记录器
+        /// Dispose all internal loggers
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+
+            // 释放所有实现了 IDisposable 的内部 logger
+            foreach (var logger in _loggers)
+            {
+                if (logger != null && logger is IDisposable )
+                {
+                    try
+                    {
+                        (logger as IDisposable).Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略已经被释放的情况
+                    }
+                    catch (Exception)
+                    {
+                        // 忽略释放过程中的其他异常，避免影响其他 logger 的释放
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>

@@ -13,7 +13,7 @@ namespace PowerThreadPool_Net20.Options
         private bool _enableStatisticsCollection = true;
         private bool _startSuspended = false;
         private int _threadQueueLimit = 100;
-        //private TimeSpan _timeout = TimeSpan.FromHours(1);
+        //
         private TimeSpan _idleThreadTimeout = TimeSpan.FromMinutes(5);
         private int _minThreads = 1;
         private TimeSpan _resultCacheExpiration = TimeSpan.FromMinutes(10);
@@ -69,20 +69,7 @@ namespace PowerThreadPool_Net20.Options
             }
         }
         
-        ///// <summary>
-        ///// 超时时间
-        ///// Timeout duration
-        ///// </summary>
-        //public TimeSpan Timeout
-        //{
-        //    get { return _timeout; }
-        //    set
-        //    {
-        //        if (value <= TimeSpan.Zero)
-        //            throw new ArgumentException("Timeout must be greater than zero");
-        //        _timeout = value;
-        //    }
-        //}
+       
         
         /// <summary>
         /// 空闲线程超时时间（在保证最小线程运行数的情况下，如果工作线程空闲时间超过该设置时间则停止该工作线程）
@@ -177,7 +164,7 @@ namespace PowerThreadPool_Net20.Options
                 _enableStatisticsCollection = other._enableStatisticsCollection;
                 _startSuspended = other._startSuspended;
                 _threadQueueLimit = other._threadQueueLimit;
-                //_timeout = other._timeout;
+             
                 _idleThreadTimeout = other._idleThreadTimeout;
                 _minThreads = other._minThreads;
                 ThreadPriority = other.ThreadPriority;

@@ -19,8 +19,7 @@ namespace PowerThreadPool_Net20.Results
         /// 构造函数
         /// Constructor
         /// </summary>
-        protected WorkEventBase(WorkID workID)
-        {
+        protected WorkEventBase(WorkID workID) {
             WorkID = workID;
         }
     }
@@ -41,94 +40,12 @@ namespace PowerThreadPool_Net20.Results
         /// 构造函数
         /// Constructor
         /// </summary>
-        protected PoolEventBase(DateTime eventTime)
-        {
+        protected PoolEventBase(DateTime eventTime) {
             EventTime = eventTime;
         }
     }
 
-    ///// <summary>
-    ///// 工作取消事件参数
-    ///// Work canceled event arguments
-    ///// </summary>
-    //public class WorkCanceledEventArgs : EventArgs
-    //{
-    //    /// <summary>
-    //    /// 工作ID
-    //    /// Work ID
-    //    /// </summary>
-    //    public WorkID WorkID { get; private set; }
-        
-    //    /// <summary>
-    //    /// 取消时间
-    //    /// Cancel time
-    //    /// </summary>
-    //    public DateTime CancelTime { get; private set; }
-        
-    //    /// <summary>
-    //    /// 取消原因（异常信息）
-    //    /// Cancel reason (exception information)
-    //    /// </summary>
-    //    public Exception CancelReason { get; private set; }
-        
-    //    /// <summary>
-    //    /// 是否成功中断执行线程
-    //    /// Whether successfully interrupted the execution thread
-    //    /// </summary>
-    //    public bool ThreadInterrupted { get; private set; }
-        
-    //    /// <summary>
-    //    /// 工作排队时间
-    //    /// Work queue time
-    //    /// </summary>
-    //    public DateTime QueueTime { get; private set; }
-        
-    //    /// <summary>
-    //    /// 工作开始时间
-    //    /// Work start time
-    //    /// </summary>
-    //    public DateTime StartTime { get; private set; }
-        
-    //    /// <summary>
-    //    /// 工作执行时长（毫秒）
-    //    /// Work execution duration (milliseconds)
-    //    /// </summary>
-    //    public long Duration { get; private set; }
-        
-    //    /// <summary>
-    //    /// 构造函数
-    //    /// Constructor
-    //    /// </summary>
-    //    public WorkCanceledEventArgs(WorkID workID, DateTime cancelTime, Exception cancelReason, 
-    //                                bool threadInterrupted, DateTime queueTime, DateTime startTime, long duration)
-    //    {
-    //        WorkID = workID;
-    //        CancelTime = cancelTime;
-    //        CancelReason = cancelReason;
-    //        ThreadInterrupted = threadInterrupted;
-    //        QueueTime = queueTime;
-    //        StartTime = startTime;
-    //        Duration = duration;
-    //    }
-        
-    //    /// <summary>
-    //    /// 简化的构造函数（用于基本取消事件）
-    //    /// Simplified constructor (for basic cancel events)
-    //    /// </summary>
-    //    public WorkCanceledEventArgs(WorkID workID, DateTime cancelTime, Exception cancelReason)
-    //        : this(workID, cancelTime, cancelReason, false, DateTime.MinValue, DateTime.MinValue, 0)
-    //    {
-    //    }
-        
-    //    /// <summary>
-    //    /// 转换为字符串
-    //    /// Convert to string
-    //    /// </summary>
-    //    public override string ToString()
-    //    {
-    //        return $"WorkCanceled[ID={WorkID}, Time={CancelTime}, Reason={CancelReason?.Message ?? "Unknown"}, Interrupted={ThreadInterrupted}, Duration={Duration}ms]";
-    //    }
-    //}
+
     /// <summary>
     /// 工作完成事件参数
     /// Work completed event arguments
@@ -151,14 +68,13 @@ namespace PowerThreadPool_Net20.Results
         /// 构造函数
         /// Constructor
         /// </summary>
-        public WorkCompletedEventArgs(WorkID workID, object result, DateTime completionTime)
-            : base(workID)
-        {
+        public WorkCompletedEventArgs(WorkID workID,object result,DateTime completionTime)
+            : base(workID) {
             Result = result;
             CompletionTime = completionTime;
         }
     }
-    
+
     /// <summary>
     /// 工作失败事件参数
     /// Work failed event arguments
@@ -182,29 +98,42 @@ namespace PowerThreadPool_Net20.Results
         /// Whether it was canceled (via CancellationToken or OperationCanceledException)
         /// </summary>
         public bool IsCanceled { get; private set; }
-       
+
+        /// <summary>
+        /// 是否是超时（通过TimeoutException）
+        /// Whether it was timeout (via TimeoutException)
+        /// </summary>
+        public bool IsTimeout { get; private set; }
+
         /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
-        public WorkFailedEventArgs(WorkID workID, Exception exception, DateTime failureTime)
-            : this(workID, exception, failureTime, false)
-        {
+        public WorkFailedEventArgs(WorkID workID,Exception exception,DateTime failureTime)
+            : this(workID,exception,failureTime,false,false) {
         }
 
         /// <summary>
         /// 构造函数（包含取消标志）
         /// Constructor (with cancellation flag)
         /// </summary>
-        public WorkFailedEventArgs(WorkID workID, Exception exception, DateTime failureTime, bool isCanceled)
-            : base(workID)
-        {
+        public WorkFailedEventArgs(WorkID workID,Exception exception,DateTime failureTime,bool isCanceled)
+            : this(workID,exception,failureTime,isCanceled,false) {
+        }
+
+        /// <summary>
+        /// 构造函数（包含取消和超时标志）
+        /// Constructor (with cancellation and timeout flags)
+        /// </summary>
+        public WorkFailedEventArgs(WorkID workID,Exception exception,DateTime failureTime,bool isCanceled,bool isTimeout)
+            : base(workID) {
             Exception = exception;
             FailureTime = failureTime;
             IsCanceled = isCanceled;
+            IsTimeout = isTimeout;
         }
     }
-    
+
     /// <summary>
     /// 线程池启动事件参数
     /// Pool started event arguments
@@ -222,12 +151,11 @@ namespace PowerThreadPool_Net20.Results
         /// Constructor
         /// </summary>
         public PoolStartedEventArgs(DateTime startTime)
-            : base(startTime)
-        {
+            : base(startTime) {
             StartTime = startTime;
         }
     }
-    
+
     /// <summary>
     /// 线程池停止事件参数
     /// Pool stopped event arguments
@@ -262,10 +190,8 @@ namespace PowerThreadPool_Net20.Results
         /// 成功率
         /// Success rate
         /// </summary>
-        public double SuccessRate
-        {
-            get
-            {
+        public double SuccessRate {
+            get {
                 return TotalWorks > 0 ? (double)CompletedWorks / TotalWorks * 100 : 0;
             }
         }
@@ -274,9 +200,8 @@ namespace PowerThreadPool_Net20.Results
         /// 构造函数
         /// Constructor
         /// </summary>
-        public PoolStoppedEventArgs(DateTime stopTime, int completedWorks, int failedWorks)
-            : base(stopTime)
-        {
+        public PoolStoppedEventArgs(DateTime stopTime,int completedWorks,int failedWorks)
+            : base(stopTime) {
             StopTime = stopTime;
             CompletedWorks = completedWorks;
             FailedWorks = failedWorks;
@@ -286,8 +211,7 @@ namespace PowerThreadPool_Net20.Results
         /// 转换为字符串
         /// Convert to string
         /// </summary>
-        public override string ToString()
-        {
+        public override string ToString() {
             return $"PoolStopped[Time={StopTime}, Completed={CompletedWorks}, Failed={FailedWorks}, SuccessRate={SuccessRate:F1}%]";
         }
     }

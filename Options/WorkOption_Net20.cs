@@ -32,7 +32,7 @@ namespace PowerThreadPool_Net20.Options
         }
         
         /// <summary>
-        /// 是否长时间运行（根据超时时间自动计算）
+        ///  是否长时间运行（根据超时时间自动计算）
         /// Whether long running (automatically calculated based on timeout)
         /// </summary>
         public bool LongRunning
@@ -40,6 +40,24 @@ namespace PowerThreadPool_Net20.Options
             get { return _longRunning; }
             set { _longRunning = value; }
         }
+
+        /// <summary>
+        /// 最大重试次数（默认为0，表示不重试）
+        /// Maximum retry count (default is 0, meaning no retry)
+        /// </summary>
+        public int MaxRetries { get; set; } = 0;
+
+        /// <summary>
+        /// 重试间隔时间（默认为1秒）
+        /// Retry interval time (default is 1 second)
+        /// </summary>
+        public TimeSpan RetryInterval { get; set; } = TimeSpan.FromSeconds(1);
+
+        /// <summary>
+        /// 重试条件委托（决定是否应该重试）
+        /// Retry condition delegate (decides whether to retry)
+        /// </summary>
+        public Func<Exception,bool> RetryCondition;
 
         /// <summary>
         /// 根据超时时间更新LongRunning属性

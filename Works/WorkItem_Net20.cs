@@ -10,7 +10,7 @@ namespace PowerThreadPool_Net20.Works
     /// 工作项执行完成回调委托
     /// Work item execution completion callback delegate
     /// </summary>
-    internal delegate void WorkItemCompletedCallback(WorkItem workItem,object result,Exception exception);
+    internal delegate void WorkItemCompletedCallback(WorkItem workItem,object result,Exception exception,int retryCount = 0);
 
     /// <summary>
     /// 工作项类
@@ -26,6 +26,7 @@ namespace PowerThreadPool_Net20.Works
         internal Thread ExecuteThread;//执行线程
         private DateTime? _queueTime;
         private DateTime? _startTime;
+        private volatile bool _callbackInvoked = false;
 
         /// <summary>
         /// 工作ID
@@ -89,115 +90,148 @@ namespace PowerThreadPool_Net20.Works
             _queueTime = DateTime.Now; // 设置入队时间
             _pool = pool;
         }
-        volatile bool wasExeCallback = false;
+
         /// <summary>
-        /// 异步执行工作（由WorkerThread调用）
-        /// Execute work asynchronously (called by WorkerThread)
+        /// 异步执行工作（由WorkerThread调用，支持重试）
+        /// Execute work asynchronously (called by WorkerThread, supports retry)
         /// </summary>
-        public void ExecuteAsync(WorkItemCompletedCallback callback) {
-            // 设置开始时间
-            _startTime = DateTime.Now;
+        public void Execute(WorkItemCompletedCallback callback) {
+            ExecuteWithRetry(callback,this._option.MaxRetries);
+        }
+
+        /// <summary>
+        /// 异步执行工作（带重试支持）
+        /// Execute work asynchronously with retry support
+        /// </summary>
+        private void ExecuteWithRetry(WorkItemCompletedCallback callback,int currentRetryCount) {
+            // 设置开始时间（仅在第一次执行时设置）
+            if (currentRetryCount == 0)
+                _startTime = DateTime.Now;
 
             // 检查是否需要开启新线程执行
             bool needsSeparateThread = _option.CancellationToken != null ||
                                     (_option.Timeout.TotalMilliseconds < int.MaxValue &&
                                     _option.Timeout.TotalMilliseconds > 0);
 
-            if (!needsSeparateThread)
-            {
+            if (!needsSeparateThread) {
                 // 没有设置超时或取消令牌，直接在当前线程执行，节省线程启动开销
-                ExecuteSynchronously(callback);
+                ExecuteSynchronously(callback,currentRetryCount);
             }
-            else
-            {
+            else {
                 // 有超时或取消令牌，需要在新线程中执行以便控制
-                ExecuteInSeparateThread(callback);
+                ExecuteInSeparateThread(callback,currentRetryCount);
             }
+        }
+
+        /// <summary>
+        /// 判断异常是否应该重试
+        /// Determine if exception should be retried
+        /// </summary>
+        private bool ShouldRetry(Exception exception) {
+            // 超时不重试
+            if (exception is TimeoutException)
+                return false;
+
+            // 取消不重试
+            if (exception is OperationCanceledException)
+                return false;
+
+            // 检查是否达到最大重试次数
+            if (_option.MaxRetries <= 0)
+                return false;
+
+            // 如果设置了重试条件，使用自定义条件
+            if (_option.RetryCondition != null)
+                return (bool)_option.RetryCondition.DynamicInvoke(exception);
+
+            // 默认对所有异常重试（除超时和取消）
+            return true;
         }
 
         /// <summary>
         /// 同步执行工作（在当前线程直接执行，无额外线程开销）
         /// Execute work synchronously (execute directly in current thread, no extra thread overhead)
         /// </summary>
-        private void ExecuteSynchronously(WorkItemCompletedCallback callback)
-        {
+        private void ExecuteSynchronously(WorkItemCompletedCallback callback,int currentRetryCount) {
             object result = null;
             Exception exception = null;
 
-            try
-            {
+            try {
                 // 直接执行工作方法
                 result = _method.DynamicInvoke();
             }
-            catch (TargetInvocationException tie)
-            {
+            catch (TargetInvocationException tie) {
                 exception = tie.InnerException ?? tie;
             }
-            catch (OperationCanceledException)
-            {
+            catch (OperationCanceledException) {
                 exception = new OperationCanceledException("Work item execution was cancelled");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 exception = ex;
             }
 
-            // 调用回调通知完成
-            callback(this, result, exception);
+            // 判断是否需要重试
+            if (exception != null && ShouldRetry(exception) && currentRetryCount < _option.MaxRetries) {
+                // 等待重试间隔
+                int waitTime = (int)_option.RetryInterval.TotalMilliseconds;
+                if (waitTime > 0)
+                    Thread.Sleep(waitTime);
+
+                // 递归重试
+                ExecuteWithRetry(callback, currentRetryCount + 1);
+            }
+            else {
+                // 确保回调只执行一次
+                if (!_callbackInvoked) {
+                    _callbackInvoked = true;
+                    callback(this, result, exception, currentRetryCount);
+                }
+            }
         }
 
         /// <summary>
         /// 在独立线程中执行工作（支持超时和取消）
         /// Execute work in separate thread (supports timeout and cancellation)
         /// </summary>
-        private void ExecuteInSeparateThread(WorkItemCompletedCallback callback)
-        {
+        private void ExecuteInSeparateThread(WorkItemCompletedCallback callback,int currentRetryCount) {
             // 创建线程同步信号
             ManualResetEvent executionCompletedEvent = new ManualResetEvent(false);
             bool executionCompleted = false;
-            bool wasCancelled = false;
-            bool wasTimeout = false;
-            wasExeCallback = false;
+            bool wasCancelled = false;          
+            object executionResult = null;
+            Exception executionException = null;
 
             // 创建执行线程
             this.ExecuteThread = new Thread(() => {
-                object result = null;
-                Exception exception = null;
-
                 try {
                     // 检查取消状态
                     if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
-                        wasCancelled = true;
                         throw new OperationCanceledException();
                     }
 
                     // 执行工作方法
-                    result = _method.DynamicInvoke();
+                    executionResult = _method.DynamicInvoke();
                 }
                 catch (ThreadInterruptedException) {
                     // 线程被中断，表示取消操作
                     wasCancelled = true;
-                    exception = new OperationCanceledException("Work item execution was interrupted by cancellation token");
+                    executionException = new OperationCanceledException("Work item execution was interrupted");
                 }
                 catch (TargetInvocationException tie) {
-                    exception = tie.InnerException ?? tie;
+                    executionException = tie.InnerException ?? tie;
                 }
                 catch (OperationCanceledException) {
                     wasCancelled = true;
-                    exception = new OperationCanceledException("Work item execution was cancelled");
+                    executionException = new OperationCanceledException("Work item execution was cancelled");
                 }
                 catch (Exception ex) {
-                    exception = ex;
+                    executionException = ex;
                 }
-
-                // 调用回调通知完成
-                if (!wasExeCallback) {
-                    wasExeCallback = true;
-                    callback(this,result,exception);
+                finally {
+                    // 设置执行完成标志
+                    executionCompleted = true;
+                    executionCompletedEvent.Set();
                 }
-                // 设置执行完成标志
-                executionCompleted = true;
-                executionCompletedEvent.Set();
             });
             this.ExecuteThread.Name = $"{this._id}_{this.Name}";
             // 启动执行线程
@@ -214,10 +248,11 @@ namespace PowerThreadPool_Net20.Works
                 // 检查取消令牌
                 if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
                     // 取消令牌被触发，标记为取消状态
-                    wasCancelled = true;
                     isCancellationTokenCompleted = true;
                     try {
                         if (this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
+                            // 注意：Thread.Abort 在 .NET Core/.NET 5+ 中已过时
+                            // 这里为了兼容性保留，建议使用 CancellationToken 替代
                             this.ExecuteThread.Abort();
                         }
                     }
@@ -229,16 +264,15 @@ namespace PowerThreadPool_Net20.Works
                 }
 
                 // 检查是否超时
-                if (_option.Timeout.TotalMilliseconds < int.MaxValue && _option.Timeout.TotalMilliseconds > 0)
-                {
+                if (_option.Timeout.TotalMilliseconds < int.MaxValue && _option.Timeout.TotalMilliseconds > 0) {
                     TimeSpan elapsed = DateTime.Now - startWaitTime;
-                    if (elapsed >= _option.Timeout)
-                    {
+                    if (elapsed >= _option.Timeout) {
                         // 超时，标记为超时状态
-                        wasTimeout = true;
                         isTimeoutCompleted = true;
                         try {
                             if (this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
+                                // 注意：Thread.Abort 在 .NET Core/.NET 5+ 中已过时
+                                // 这里为了兼容性保留，建议使用 CancellationToken 替代
                                 this.ExecuteThread.Abort();
                             }
                         }
@@ -254,40 +288,50 @@ namespace PowerThreadPool_Net20.Works
                 waitCompleted = executionCompletedEvent.WaitOne(TimeSpan.FromMilliseconds(100));
             }
 
+            // 释放同步资源
+            executionCompletedEvent.Close();
+
             // 如果超时或被取消，检查线程是否仍在运行
             if (!executionCompleted && this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
-                if (wasCancelled) {
+                if (isCancellationTokenCompleted) {
                     Console.WriteLine($"WorkItem {_id} execution was cancelled, but thread is still running");
                 }
-                else if (wasTimeout) {
+                else if (isTimeoutCompleted) {
                     Console.WriteLine($"WorkItem {_id} execution timeout detected, but thread is still running");
                 }
             }
-            // 释放同步资源
-            //(executionCompletedEvent as IDisposable).Dispose();
-            executionCompletedEvent.Close();
-            // 确保回调必须执行
-            if (!wasExeCallback)
-            {
-                wasExeCallback = true;
-                if (isCancellationTokenCompleted)
-                {
+
+            // 判断是否需要重试（仅在正常执行完成但失败的情况下）
+            // 修正：executionCompleted && executionException != null 表示执行完成但有异常
+            if (!isCancellationTokenCompleted && !isTimeoutCompleted &&
+                executionCompleted && executionException != null &&
+                ShouldRetry(executionException) && currentRetryCount < _option.MaxRetries) {
+                // 等待重试间隔
+                int waitTime = (int)_option.RetryInterval.TotalMilliseconds;
+                if (waitTime > 0)
+                    Thread.Sleep(waitTime);
+
+                // 递归重试
+                ExecuteWithRetry(callback, currentRetryCount + 1);
+                return;
+            }
+
+            // 确保回调只执行一次
+            if (!_callbackInvoked) {
+                _callbackInvoked = true;
+                if (isCancellationTokenCompleted) {
                     // 取消令牌导致的退出
-                    callback(this, null, new OperationCanceledException($"WorkItem {_id} execution was cancelled"));
+                    callback(this, null, new OperationCanceledException($"WorkItem {_id} execution was cancelled"), currentRetryCount);
                 }
-                else if (isTimeoutCompleted)
-                {
+                else if (isTimeoutCompleted) {
                     // 超时导致的退出
-                    callback(this, null, new TimeoutException($"WorkItem {_id} execution timeout after {_option.Timeout.TotalMilliseconds}ms"));
+                    callback(this, null, new TimeoutException($"WorkItem {_id} execution timeout after {_option.Timeout.TotalMilliseconds}ms"), currentRetryCount);
                 }
-                else
-                {
-                    // 其他未知原因导致的退出
-                    callback(this, null, new Exception($"WorkItem {_id} execution was terminated unexpectedly"));
+                else {
+                    // 正常完成或执行异常
+                    callback(this, executionResult, executionException, currentRetryCount);
                 }
             }
         }
-
-
     }
 }

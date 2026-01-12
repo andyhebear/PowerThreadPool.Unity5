@@ -18,7 +18,7 @@ namespace PowerThreadPool_Net20.Works
         private readonly Thread _thread;
         private readonly AtomicFlag _shouldStop = new AtomicFlag();
         private readonly AtomicFlag _isIdle = new AtomicFlag();
-        private readonly InterlockedFlag<WorkerStates> _workerState = WorkerStates.Idle;
+        private readonly InterlockedEnumFlag<WorkerStates> _workerState = WorkerStates.Idle;
         private WorkID _currentWorkID = WorkID.Empty;
         private DateTime _idleStartTime = DateTime.Now;
 
@@ -200,12 +200,12 @@ namespace PowerThreadPool_Net20.Works
             if (workItem.Option.CancellationToken != null && workItem.Option.CancellationToken.IsCancellationRequested)
             {
                 // 在释放锁之前调用OnWorkCompleted，避免死锁
-                _pool.OnWorkCompleted(workItem, null, new OperationCanceledException());
+                _pool.OnWorkCompleted(workItem, null, new OperationCanceledException(), 0);
                 return;
             }
 
             // 异步执行工作项，通过回调获取结果
-            workItem.ExecuteAsync((completedWorkItem, result, exception) =>
+            workItem.Execute((completedWorkItem, result, exception, retryCount) =>
             {
                 // 更新执行时间统计 - 通过公共接口
                 if (_pool.Options.EnableStatisticsCollection)
@@ -215,7 +215,7 @@ namespace PowerThreadPool_Net20.Works
                 }
 
                 // 通知线程池工作完成
-                _pool.OnWorkCompleted(completedWorkItem, result, exception);
+                _pool.OnWorkCompleted(completedWorkItem, result, exception, retryCount);
             });
         }
     }

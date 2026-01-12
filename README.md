@@ -1,6 +1,6 @@
 # PowerThreadPool_Net20
 
-PowerThreadPool_Net20是一个为Unity 5.x及.NET 2.0环境设计的强大线程池库，提供了高效的任务调度和执行功能。
+PowerThreadPool_Net20是一个为Unity 5.x及.NET 2.0环境设计的强大线程池库，提供了高效的任务调度和执行功能。基于开源库PowerThreadPool架构与思想重新设计编写。
 
 ## 特性
 
@@ -14,7 +14,7 @@ PowerThreadPool_Net20是一个为Unity 5.x及.NET 2.0环境设计的强大线程
 
 ## 安装
 
-### Unity 5.6集成
+### Unity 5.x集成
 
 1. 将PowerThreadPool_Net20项目编译为DLL
 2. 将编译后的DLL文件导入Unity项目的Assets/Plugins目录

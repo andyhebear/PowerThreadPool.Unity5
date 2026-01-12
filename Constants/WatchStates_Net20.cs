@@ -2,6 +2,7 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
+    /*
     /// <summary>
     /// 监视状态枚举 / Watch state enumeration
     /// </summary>
@@ -17,4 +18,5 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         Watching = 1,
     }
+    */
 }

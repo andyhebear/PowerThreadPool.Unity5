@@ -1,4 +1,5 @@
 ﻿
+using PowerThreadPool_Net20.Groups;
 using PowerThreadPool_Net20.Options;
 using PowerThreadPool_Net20.Results;
 using PowerThreadPool_Net20.Threading;
@@ -12,16 +13,16 @@ namespace PowerThreadPool_Net20
 {
     internal class Program
     {
-        static void Main(string[] args)
-        {
+        static void Main(string[] args) {
+            Test_Group_Usage.RunAllTests();
+            Console.ReadLine();
             PowerPoolComprehensiveTests.RunAllTests();
             Console.ReadLine();
             Console.WriteLine("PowerThreadPool_Net20 Example");
             Console.WriteLine("================================");
 
             // Create a new PowerPool with 2 minimum workers and 4 maximum workers
-            PowerPool pool = new PowerPool(new PowerThreadPool_Net20.Options.PowerPoolOption()
-            { MaxThreads = 4,ThreadNamePrefix = "rs.",ThreadQueueLimit = 8 });
+            PowerPool pool = new PowerPool(new PowerThreadPool_Net20.Options.PowerPoolOption() { MaxThreads = 4,ThreadNamePrefix = "rs.",ThreadQueueLimit = 8 });
 
             pool.Start();
             Console.WriteLine("Pool created with MinWorkers: 2, MaxWorkers: 4");
@@ -35,15 +36,13 @@ namespace PowerThreadPool_Net20
             // Example 1: Queue simple actions
             Console.WriteLine("Example 1: Queue simple actions");
 
-            var workId1 = pool.QueueWorkItem(() =>
-            {
+            var workId1 = pool.QueueWorkItem(() => {
                 Console.WriteLine("Work 1 started");
                 Thread.Sleep(1000);
                 Console.WriteLine("Work 1 completed");
             });
 
-            var workId2 = pool.QueueWorkItem(() =>
-            {
+            var workId2 = pool.QueueWorkItem(() => {
                 Console.WriteLine("Work 2 started");
                 Thread.Sleep(500);
                 Console.WriteLine("Work 2 completed");
@@ -59,8 +58,7 @@ namespace PowerThreadPool_Net20
             // Example 2: Queue functions with results
             Console.WriteLine("Example 2: Queue functions with results");
 
-            var work3 = pool.QueueWorkItem(() =>
-            {
+            var work3 = pool.QueueWorkItem(() => {
                 Console.WriteLine("Work 3 started");
                 Thread.Sleep(800);
                 int result = 42;
@@ -68,8 +66,7 @@ namespace PowerThreadPool_Net20
                 return result;
             });
 
-            var work4 = pool.QueueWorkItem(() =>
-            {
+            var work4 = pool.QueueWorkItem(() => {
                 Console.WriteLine("Work 4 started");
                 Thread.Sleep(600);
                 string result = "Hello from PowerThreadPool";
@@ -88,15 +85,13 @@ namespace PowerThreadPool_Net20
             // Example 3: Queue with priorities
             Console.WriteLine("Example 3: Queue with priorities");
 
-            var work5 = pool.QueueWorkItem(() =>
-            {
+            var work5 = pool.QueueWorkItem(() => {
                 Console.WriteLine("Low priority work (5) started");
                 Thread.Sleep(1000);
                 Console.WriteLine("Low priority work (5) completed");
             });
 
-            var work6 = pool.QueueWorkItem(() =>
-            {
+            var work6 = pool.QueueWorkItem(() => {
                 Console.WriteLine("High priority work (6) started");
                 Thread.Sleep(500);
                 Console.WriteLine("High priority work (6) completed");
@@ -115,11 +110,9 @@ namespace PowerThreadPool_Net20
             int workCount = 8;
             WorkID[] works = new WorkID[workCount];
 
-            for (int i = 0; i < workCount; i++)
-            {
+            for (int i = 0; i < workCount; i++) {
                 int workIndex = i;
-                works[i] = pool.QueueWorkItem(() =>
-                {
+                works[i] = pool.QueueWorkItem(() => {
                     Console.WriteLine("Batch work {0} started",workIndex);
                     Thread.Sleep(new Random().Next(2000,8000));
                     Console.WriteLine("Batch work {0} completed",workIndex);
@@ -143,25 +136,22 @@ namespace PowerThreadPool_Net20
         /// <summary>
         /// 添加工作项示例 / Add work items example
         /// </summary>
-        static void testAddWorkItems(PowerPool _threadPool)
-        {
+        static void testAddWorkItems(PowerPool _threadPool) {
             CancellationTokenSource cts = new CancellationTokenSource();
             // 简单工作项 / Simple work item
             var workId1 = _threadPool.QueueWorkItem<int>(
-                () =>
-                {
+                () => {
                     // 模拟计算密集型任务 / Simulate compute-intensive task
                     int result = 0;
-                    for (int i = 0; i < 10000; i++)
-                    {
+                    for (int i = 0; i < 10000; i++) {
                         result += i;
                         Thread.Sleep(1);
                     }
                     Console.WriteLine("result:" + result);
                     return result;
                 },
-                new WorkOption { CancellationToken = cts.Token }//,
-                //"ComputeGroup"
+                new WorkOption(cts.Token)//,
+                                         //"ComputeGroup"
             );
             Thread.Sleep(2000);
             cts.Cancel();
@@ -169,36 +159,33 @@ namespace PowerThreadPool_Net20
             //return;
             // 异步工作项 / Asynchronous work item
             var workId2 = _threadPool.QueueWorkItem(
-                () =>
-                {
+                () => {
                     // 模拟IO密集型任务 / Simulate IO-intensive task
                     System.Threading.Thread.Sleep(1000);
                     Console.WriteLine("IO Task Completed");
                     return "IO Task Completed";
                 },
-                new WorkOption { Timeout = TimeSpan.FromMilliseconds(5000) }//, // 5秒超时 / 5 seconds timeout
-                //"IOGroup"
+                new WorkOption(TimeSpan.FromMilliseconds(5000))//, // 5秒超时 / 5 seconds timeout
+                                                               //"IOGroup"
             );
 
             Console.WriteLine("Queued IO work item: " + workId2);
 
             // 带参数的工作项 / Work item with parameters
             var workId3 = _threadPool.QueueWorkItem(
-                () =>
-                {
+                () => {
                     string message = "";//param as string;
                     Console.WriteLine("Worker thread message: " + message);
                     return "Processed: " + message;
                 },
                 //"Hello from Unity!",
-                new WorkOption { CancellationToken = cts.Token }//,
-                //"MessageGroup"
+                new WorkOption(cts.Token)//,
+                                         //"MessageGroup"
             );
             _threadPool.WaitAll();
             Console.WriteLine("Queued parameterized work item: " + workId3);
         }
-        static void testParallelExe(PowerPool _threadPool)
-        {
+        static void testParallelExe(PowerPool _threadPool) {
             // 创建线程池           
 
             Console.WriteLine("=== 并行循环和ExecuteResult示例开始 ===");
@@ -219,13 +206,11 @@ namespace PowerThreadPool_Net20
         /// <summary>
         /// 测试ParallelFor
         /// </summary>
-        static void TestParallelFor(PowerPool _threadPool)
-        {
+        static void TestParallelFor(PowerPool _threadPool) {
             Console.WriteLine("--- ParallelFor 测试 ---");
 
             // 并行计算0-99的平方
-            WorkID[] workIds = _threadPool.ParallelFor(0,100,i =>
-            {
+            WorkID[] workIds = _threadPool.ParallelFor(0,100,i => {
                 int result = i * i;
                 Console.WriteLine($"计算 {i}^2 = {result}");
             });
@@ -241,20 +226,17 @@ namespace PowerThreadPool_Net20
         /// <summary>
         /// 测试ParallelForEach
         /// </summary>
-        static void TestParallelForEach(PowerPool _threadPool)
-        {
+        static void TestParallelForEach(PowerPool _threadPool) {
             Console.WriteLine("--- ParallelForEach 测试 ---");
 
             var numbers = new int[] { 1,2,3,4,5,6,7,8,9,10 };
 
             // 并行处理每个数字
-            WorkID[] workIds = _threadPool.ParallelForEach(numbers,number =>
-            {
+            WorkID[] workIds = _threadPool.ParallelForEach(numbers,number => {
                 Console.WriteLine($"处理数字: {number}");
                 // 模拟一些计算
                 int result = 0;
-                for (int i = 0; i < 100000; i++)
-                {
+                for (int i = 0; i < 100000; i++) {
                     result += number * i;
                 }
             });
@@ -270,8 +252,7 @@ namespace PowerThreadPool_Net20
         /// <summary>
         /// 测试ParallelInvoke
         /// </summary>
-        static void TestParallelInvoke(PowerPool _threadPool)
-        {
+        static void TestParallelInvoke(PowerPool _threadPool) {
             Console.WriteLine("--- ParallelInvoke 测试 ---");
 
             // 并行执行多个操作
@@ -293,25 +274,21 @@ namespace PowerThreadPool_Net20
         /// <summary>
         /// 测试ExecuteResult功能
         /// </summary>
-        static void TestExecuteResults(PowerPool _threadPool)
-        {
+        static void TestExecuteResults(PowerPool _threadPool) {
             Console.WriteLine("--- ExecuteResult 测试 ---");
 
             // 提交带返回值的工作项
-            WorkID workId1 = _threadPool.QueueWorkItem(() =>
-            {
+            WorkID workId1 = _threadPool.QueueWorkItem(() => {
                 System.Threading.Thread.Sleep(1000); // 模拟工作
                 return "成功完成";
             });
 
-            WorkID workId2 = _threadPool.QueueWorkItem(() =>
-            {
+            WorkID workId2 = _threadPool.QueueWorkItem(() => {
                 System.Threading.Thread.Sleep(500);
                 return 42;
             });
 
-            WorkID workId3 = _threadPool.QueueWorkItem(() =>
-            {
+            WorkID workId3 = _threadPool.QueueWorkItem(() => {
                 // 模拟失败
                 throw new InvalidOperationException("测试异常");
             });
@@ -466,7 +443,7 @@ namespace PowerThreadPool_Net20
                 Console.WriteLine($"测试运行时发生错误 / Error running tests: {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
             }
-            
+
         }
 
         #region 辅助方法
@@ -620,9 +597,9 @@ namespace PowerThreadPool_Net20
                 PrintTestResult("多个工作项队列执行",test2);
 
                 // 测试带选项的队列
-                WorkOption option = new WorkOption {
-                    Priority = WorkPriority.High
-                };
+                WorkOption option = new WorkOption(
+                     WorkPriority.High
+                );
                 WorkID id2 = pool.QueueWorkItem(() => {
                     lock (lockObj) counter++;
                 },option);
@@ -903,28 +880,28 @@ namespace PowerThreadPool_Net20
 
             //using (PowerPool pool = CreateTestPool()) {
             PowerPool pool = CreateTestPool();
-                WorkID[] ids = new WorkID[5];
-                for (int i = 0; i < 5; i++) {
-                    int val = i;
-                    ids[i] = pool.QueueWorkItem(() => {
-                        Thread.Sleep(val * 50);
-                        return val;
-                    });
+            WorkID[] ids = new WorkID[5];
+            for (int i = 0; i < 5; i++) {
+                int val = i;
+                ids[i] = pool.QueueWorkItem(() => {
+                    Thread.Sleep(val * 50);
+                    return val;
+                });
+            }
+
+            ExecuteResult[] results = pool.GetResultsAndWait(ids,5000);
+
+            bool test1 = results.Length == 5;
+            PrintTestResult("批量等待并获取结果数量正确",test1);
+
+            bool allCorrect = true;
+            for (int i = 0; i < results.Length; i++) {
+                if (!results[i].IsSuccess || (int)results[i].Result != i) {
+                    allCorrect = false;
+                    break;
                 }
-
-                ExecuteResult[] results = pool.GetResultsAndWait(ids,5000);
-
-                bool test1 = results.Length == 5;
-                PrintTestResult("批量等待并获取结果数量正确",test1);
-
-                bool allCorrect = true;
-                for (int i = 0; i < results.Length; i++) {
-                    if (!results[i].IsSuccess || (int)results[i].Result != i) {
-                        allCorrect = false;
-                        break;
-                    }
-                }
-                PrintTestResult("批量等待并获取结果内容正确",allCorrect);
+            }
+            PrintTestResult("批量等待并获取结果内容正确",allCorrect);
             pool.Dispose();
             //}
         }
@@ -1120,22 +1097,22 @@ namespace PowerThreadPool_Net20
                 pool.QueueWorkItem(() => {
                     Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("Normal");
-                },new WorkOption { Priority = WorkPriority.Normal });
+                },new WorkOption(WorkPriority.Normal));
 
                 pool.QueueWorkItem(() => {
                     Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("Critical");
-                },new WorkOption { Priority = WorkPriority.Critical });
+                },new WorkOption(WorkPriority.Critical));
 
                 pool.QueueWorkItem(() => {
                     Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("Low");
-                },new WorkOption { Priority = WorkPriority.Low });
+                },new WorkOption(WorkPriority.Low));
 
                 pool.QueueWorkItem(() => {
                     Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("High");
-                },new WorkOption { Priority = WorkPriority.High });
+                },new WorkOption(WorkPriority.High));
 
                 pool.WaitAll();
 
@@ -1168,10 +1145,10 @@ namespace PowerThreadPool_Net20
                     if (attemptCount < 3)
                         throw new InvalidOperationException("Retry test");
                     return "Success";
-                },new WorkOption {
-                    MaxRetries = 3,
-                    RetryInterval = TimeSpan.FromMilliseconds(100)
-                });
+                },new WorkOption(
+                     3,
+                    TimeSpan.FromMilliseconds(100)
+                ));
 
                 pool.WaitWork(id);
 
@@ -1199,14 +1176,13 @@ namespace PowerThreadPool_Net20
                 WorkID id = pool.QueueWorkItem(() => {
                     lock (lockObj) attemptCount++;
                     throw new Exception("Test exception");
-                },new WorkOption {
-                    MaxRetries = 5,
-                    RetryCondition = (ex) => {
+                },new WorkOption(
+                     5,TimeSpan.FromMilliseconds(50),
+                    (ex) => {
                         // 只在前3次失败时重试
                         return attemptCount < 3;
-                    },
-                    RetryInterval = TimeSpan.FromMilliseconds(50)
-                });
+                    }
+                ));
 
                 pool.WaitWork(id);
 
@@ -1230,10 +1206,10 @@ namespace PowerThreadPool_Net20
             using (PowerPool pool = CreateTestPool()) {
                 WorkID id = pool.QueueWorkItem(() => {
                     throw new TimeoutException("Timeout");
-                },new WorkOption {
-                    MaxRetries = 3,
-                    RetryInterval = TimeSpan.FromMilliseconds(100)
-                });
+                },new WorkOption(
+                   3,
+                    TimeSpan.FromMilliseconds(100)
+                ));
 
                 pool.WaitWork(id);
 
@@ -1260,9 +1236,9 @@ namespace PowerThreadPool_Net20
                 WorkID id = pool.QueueWorkItem(() => {
                     Thread.Sleep(5000);
                     return "Should not complete";
-                },new WorkOption {
-                    Timeout = TimeSpan.FromMilliseconds(500)
-                });
+                },new WorkOption(
+                   TimeSpan.FromMilliseconds(500)
+                ));
 
                 pool.WaitWork(id);
 
@@ -1284,9 +1260,9 @@ namespace PowerThreadPool_Net20
                 WorkID id = pool.QueueWorkItem(() => {
                     Thread.Sleep(100);
                     return "Completed";
-                },new WorkOption {
-                    Timeout = TimeSpan.FromSeconds(1)
-                });
+                },new WorkOption(
+                     TimeSpan.FromSeconds(1)
+                ));
 
                 pool.WaitWork(id);
 
@@ -1317,9 +1293,9 @@ namespace PowerThreadPool_Net20
                         Thread.Sleep(100);
                     }
                     return "Completed";
-                },new WorkOption {
-                    CancellationToken = token
-                });
+                },new WorkOption(
+                     token
+                ));
 
                 Thread.Sleep(200);
                 token.Cancel();
@@ -1850,9 +1826,9 @@ namespace PowerThreadPool_Net20
             using (PowerPool pool = CreateTestPool()) {
                 // 测试超时超过int.MaxValue
                 try {
-                    WorkOption option = new WorkOption {
-                        Timeout = TimeSpan.FromDays(30)
-                    };
+                    WorkOption option = new WorkOption(
+                       TimeSpan.FromDays(30)
+                    );
                     PrintTestResult("超时超过int.MaxValue抛出异常",false);
                 }
                 catch (ArgumentOutOfRangeException) {
@@ -1967,5 +1943,791 @@ namespace PowerThreadPool_Net20
         }
 
         #endregion
+    }
+
+
+    /// <summary>
+    /// Group功能使用测试示例
+    /// Group functionality usage test examples
+    /// </summary>
+    public class Test_Group_Usage
+    {
+        /// <summary>
+        /// 测试1：基本分组操作
+        /// Test 1: Basic group operations
+        /// </summary>
+        public static void Test1_BasicGroupOperations() {
+            Console.WriteLine("=== 测试1：基本分组操作 / Test 1: Basic Group Operations ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 2,MaxThreads = 4 })) {
+                // 创建分组
+                pool.Start();
+                // Create a group
+                Group group = pool.GetGroup("TaskGroup1");
+                Console.WriteLine($"创建分组 'TaskGroup1': {pool.GroupExists("TaskGroup1")}");
+
+                // 添加工作到分组
+                // Add works to group
+                List<WorkID> workIds = new List<WorkID>();
+                for (int i = 0; i < 5; i++) {
+                    int index = i;
+                    WorkID workId = pool.QueueWorkItem(() => {
+                        Thread.Sleep(100 * index);
+                        return $"Task {index} completed";
+                    });
+                    workIds.Add(workId);
+                    bool added = group.Add(workId);
+                    Console.WriteLine($"工作 {workId} 添加到分组: {added}");
+                }
+
+                // 获取分组成员
+                // Get group members
+                var members = group.GetMembers();
+                Console.WriteLine($"\n分组成员数量: {members.Count}");
+
+                // 等待所有工作完成
+                // Wait for all works to complete
+                Console.WriteLine("\n等待所有工作完成...");
+                group.Wait();
+                Console.WriteLine("所有工作已完成");
+
+                // 获取结果
+                // Get results
+                List<ExecuteResult> results = group.GetResults();
+                Console.WriteLine($"\n获取到 {results.Count} 个结果:");
+                foreach (var result in results) {
+                    if (result.IsSuccess) {
+                        Console.WriteLine($"  工作ID {result.ID}: {result.Result}");
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== 测试1完成 / Test 1 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试2：多个分组管理
+        /// Test 2: Multiple group management
+        /// </summary>
+        public static void Test2_MultipleGroups() {
+            Console.WriteLine("=== 测试2：多个分组管理 / Test 2: Multiple Group Management ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 2,MaxThreads = 6 })) {
+                pool.Start();
+                // 创建多个分组
+                // Create multiple groups
+                Group groupA = pool.GetGroup("GroupA");
+                Group groupB = pool.GetGroup("GroupB");
+                Group groupC = pool.GetGroup("GroupC");
+
+                Console.WriteLine($"创建的分组: {string.Join(", ",pool.GetAllGroupNames().ToArray())}");
+
+                // 添加工作到不同分组
+                // Add works to different groups
+                for (int i = 0; i < 10; i++) {
+                    int index = i;
+                    WorkID workId = pool.QueueWorkItem(() => {
+                        Thread.Sleep(50);
+                        return index * 10;
+                    });
+
+                    // 根据索引分配到不同分组
+                    // Assign to different groups based on index
+                    if (index % 3 == 0)
+                        groupA.Add(workId);
+                    else if (index % 3 == 1)
+                        groupB.Add(workId);
+                    else
+                        groupC.Add(workId);
+                }
+
+                // 分别等待每个分组完成
+                // Wait for each group separately
+                Console.WriteLine("\nGroupA 成员数量: {0}",new List<WorkID>(groupA.GetMembers()).Count);
+                Console.WriteLine("GroupB 成员数量: {0}",new List<WorkID>(groupB.GetMembers()).Count);
+                Console.WriteLine("GroupC 成员数量: {0}",new List<WorkID>(groupC.GetMembers()).Count);
+
+                Console.WriteLine("\n等待 GroupA 完成...");
+                groupA.Wait();
+                Console.WriteLine("GroupA 完成");
+
+                Console.WriteLine("\n等待 GroupB 完成...");
+                groupB.Wait();
+                Console.WriteLine("GroupB 完成");
+
+                Console.WriteLine("\n等待 GroupC 完成...");
+                groupC.Wait();
+                Console.WriteLine("GroupC 完成");
+
+                // 获取所有分组名称
+                // Get all group names
+                Console.WriteLine($"\n所有分组名称: {string.Join(", ",pool.GetAllGroupNames().ToArray())}");
+                Console.WriteLine($"分组总数: {pool.GetGroupCount()}");
+            }
+
+            Console.WriteLine("\n=== 测试2完成 / Test 2 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试3：工作可以属于多个分组
+        /// Test 3: Work can belong to multiple groups
+        /// </summary>
+        public static void Test3_WorkInMultipleGroups() {
+            Console.WriteLine("=== 测试3：工作可以属于多个分组 / Test 3: Work Can Belong to Multiple Groups ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 1,MaxThreads = 2 })) {
+                pool.Start();
+                // 创建两个分组
+                // Create two groups
+                Group group1 = pool.GetGroup("HighPriority");
+                Group group2 = pool.GetGroup("BackupTasks");
+
+                // 创建一个工作并添加到两个分组
+                // Create a work and add it to both groups
+                WorkID sharedWork = pool.QueueWorkItem(() => {
+                    Thread.Sleep(200);
+                    return "Shared task result";
+                });
+
+                group1.Add(sharedWork);
+                group2.Add(sharedWork);
+
+                Console.WriteLine($"工作 {sharedWork} 添加到 Group1: {group1.GetMembers().Contains(sharedWork)}");
+                Console.WriteLine($"工作 {sharedWork} 添加到 Group2: {group2.GetMembers().Contains(sharedWork)}");
+
+                // 检查工作所属的分组
+                // Check which groups the work belongs to
+                List<string> workGroups = pool.GetWorkGroups(sharedWork);
+                Console.WriteLine($"\n工作 {sharedWork} 所属的分组: {string.Join(", ",workGroups.ToArray())}");
+
+                // 检查工作是否在特定分组中
+                // Check if work is in specific group
+                Console.WriteLine($"工作在 Group1 中: {pool.IsWorkInGroup(sharedWork,"HighPriority")}");
+                Console.WriteLine($"工作在 Group2 中: {pool.IsWorkInGroup(sharedWork,"BackupTasks")}");
+
+                // 从一个分组中移除工作（不影响其他分组）
+                // Remove work from one group (doesn't affect other groups)
+                bool removed = group1.Remove(sharedWork);
+                Console.WriteLine($"\n从 Group1 移除工作: {removed}");
+
+                Console.WriteLine($"工作在 Group1 中: {pool.IsWorkInGroup(sharedWork,"HighPriority")}");
+                Console.WriteLine($"工作在 Group2 中: {pool.IsWorkInGroup(sharedWork,"BackupTasks")}");
+
+                // 等待完成
+                // Wait for completion
+                group2.Wait();
+                Console.WriteLine("\n工作已完成");
+            }
+
+            Console.WriteLine("\n=== 测试3完成 / Test 3 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试4：分组操作 - Add/Remove
+        /// Test 4: Group operations - Add/Remove
+        /// </summary>
+        public static void Test4_GroupAddRemove() {
+            Console.WriteLine("=== 测试4：分组操作 - Add/Remove / Test 4: Group Operations - Add/Remove ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 1,MaxThreads = 2 })) {
+                pool.Start();
+                Group group = pool.GetGroup("TestGroup");
+
+                // 创建工作
+                // Create works
+                List<WorkID> workIds = new List<WorkID>();
+                for (int i = 0; i < 5; i++) {
+                    workIds.Add(pool.QueueWorkItem(() => i * 10));
+                }
+
+                Console.WriteLine($"创建了 {workIds.Count} 个工作");
+
+                // 添加到分组
+                // Add to group
+                foreach (var workId in workIds) {
+                    bool added = group.Add(workId);
+                    Console.WriteLine($"添加 {workId}: {added}");
+                }
+
+                Console.WriteLine($"\n分组大小: {new List<WorkID>(group.GetMembers()).Count}");
+
+                // 从分组中移除特定工作
+                // Remove specific work from group
+                bool removed = group.Remove(workIds[0]);
+                Console.WriteLine($"\n移除 {workIds[0]}: {removed}");
+
+                Console.WriteLine($"分组大小: {new List<WorkID>(group.GetMembers()).Count}");
+
+                // 尝试移除不在分组中的工作
+                // Try to remove work not in group
+                WorkID nonExistentWork = new WorkID(Guid.NewGuid().GetHashCode());
+                bool removedAgain = group.Remove(nonExistentWork);
+                Console.WriteLine($"移除不存在的 {nonExistentWork}: {removedAgain}");
+
+                // 清空分组
+                // Clear group
+                pool.ClearGroup("TestGroup");
+                Console.WriteLine($"\n清空分组后大小: {new List<WorkID>(group.GetMembers()).Count}");
+            }
+
+            Console.WriteLine("\n=== 测试4完成 / Test 4 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试5：GetResultsAndWait 方法
+        /// Test 5: GetResultsAndWait method
+        /// </summary>
+        public static void Test5_GetResultsAndWait() {
+            Console.WriteLine("=== 测试5：GetResultsAndWait 方法 / Test 5: GetResultsAndWait Method ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 2,MaxThreads = 4 })) {
+                pool.Start();
+                Group group = pool.GetGroup("ResultsGroup");
+
+                // 创建不同耗时的任务
+                // Create tasks with different durations
+                List<WorkID> workIds = new List<WorkID>();
+                for (int i = 0; i < 5; i++) {
+                    int index = i;
+                    workIds.Add(pool.QueueWorkItem(() => {
+                        Thread.Sleep(100 * index);
+                        return index * 100;
+                    }));
+                    group.Add(workIds[i]);
+                }
+
+                Console.WriteLine("创建并添加了 5 个任务");
+
+                // 使用 GetResultsAndWait 等待并获取所有结果
+                // Use GetResultsAndWait to wait and get all results
+                Console.WriteLine("\n使用 GetResultsAndWait 等待所有结果...");
+                List<ExecuteResult> results = group.GetResultsAndWait();
+
+                Console.WriteLine($"\n获取到 {results.Count} 个结果:");
+                foreach (var result in results) {
+                    if (result.IsSuccess) {
+                        Console.WriteLine($"  工作ID {result.ID}: {result.Result}");
+                    }
+                    else {
+                        Console.WriteLine($"  工作ID {result.ID}: 失败 - {result.Exception?.Message}");
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== 测试5完成 / Test 5 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试6：使用 PowerPool 直接管理分组
+        /// Test 6: Manage groups directly using PowerPool
+        /// </summary>
+        public static void Test6_PowerPoolGroupManagement() {
+            Console.WriteLine("=== 测试6：PowerPool直接管理分组 / Test 6: PowerPool Direct Group Management ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 1,MaxThreads = 2 })) {
+                pool.Start();
+                // 使用 PowerPool 方法管理分组
+                // Manage groups using PowerPool methods
+
+                // 1. 创建分组
+                // 1. Create group
+                pool.GetGroup("DirectGroup");
+                Console.WriteLine("创建分组 'DirectGroup'");
+
+                // 2. 添加工作到分组
+                // 2. Add work to group
+                WorkID work1 = pool.QueueWorkItem(() => { Thread.Sleep(100); return 1; });
+                WorkID work2 = pool.QueueWorkItem(() => { Thread.Sleep(100); return 2; });
+                WorkID work3 = pool.QueueWorkItem(() => { Thread.Sleep(100); return 3; });
+
+                pool.AddWorkToGroup("DirectGroup",work1);
+                pool.AddWorkToGroup("DirectGroup",work2);
+                pool.AddWorkToGroup("DirectGroup",work3);
+                Console.WriteLine("\n添加了 3 个工作到分组");
+
+                // 3. 获取分组成员列表
+                // 3. Get group member list
+                List<WorkID> groupMembers = pool.GetGroupWorkItems("DirectGroup");
+                Console.WriteLine($"分组工作项数量: {groupMembers.Count}");
+
+                // 4. 检查分组是否存在
+                // 4. Check if group exists
+                Console.WriteLine($"\n分组 'DirectGroup' 存在: {pool.GroupExists("DirectGroup")}");
+                Console.WriteLine($"分组 'NonExistent' 存在: {pool.GroupExists("NonExistent")}");
+
+                // 5. 获取所有分组名称
+                // 5. Get all group names
+                List<string> allGroups = pool.GetAllGroupNames();
+                Console.WriteLine($"\n所有分组: {string.Join(", ",allGroups.ToArray())}");
+
+                // 6. 从分组中移除工作
+                // 6. Remove work from group
+                bool removed = pool.RemoveWorkFromGroup("DirectGroup",work1);
+                Console.WriteLine($"\n从分组移除工作 {work1}: {removed}");
+
+                // 7. 等待并获取结果
+                // 7. Wait and get results
+                Console.WriteLine("\n等待剩余工作完成...");
+                pool.WaitWorks(groupMembers.ToArray(),5000);
+                Console.WriteLine("所有工作已完成");
+            }
+
+            Console.WriteLine("\n=== 测试6完成 / Test 6 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试7：性能测试 - Wait 方法优化
+        /// Test 7: Performance test - Wait method optimization
+        /// </summary>
+        public static void Test7_PerformanceTest() {
+            Console.WriteLine("=== 测试7：性能测试 - Wait方法优化 / Test 7: Performance Test - Wait Method Optimization ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 4,MaxThreads = 8 })) {
+                pool.Start();
+                Group group = pool.GetGroup("PerfGroup");
+
+                // 创建100个短任务
+                // Create 100 short tasks
+                int taskCount = 100;
+                Console.WriteLine($"创建 {taskCount} 个任务...");
+
+                for (int i = 0; i < taskCount; i++) {
+                    int index = i;
+                    WorkID workId = pool.QueueWorkItem(() => {
+                        Thread.Sleep(50);  // 每个任务50ms
+                        return index;
+                    });
+                    group.Add(workId);
+                }
+
+                // 测量等待时间
+                // Measure wait time
+                DateTime startTime = DateTime.Now;
+                group.Wait();
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n所有任务完成!");
+                Console.WriteLine($"等待时间: {elapsed.TotalMilliseconds:F2} ms");
+                Console.WriteLine($"理论最小时间: 50 ms (所有任务并行执行)");
+                Console.WriteLine($"理论最大时间: {taskCount * 50} ms (逐个执行)");
+                Console.WriteLine($"加速比: {(taskCount * 50.0) / elapsed.TotalMilliseconds:F2}x");
+
+                // 获取结果
+                // Get results
+                List<ExecuteResult> results = group.GetResults();
+                Console.WriteLine($"\n获取到 {results.Count} 个结果");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+            }
+
+            Console.WriteLine("\n=== 测试7完成 / Test 7 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试8：ExecuteParallel - Func<TResult> 并行计算
+        /// Test 8: ExecuteParallel - Func<TResult> parallel computation
+        /// </summary>
+        public static void Test8_ExecuteParallel_Func() {
+            Console.WriteLine("=== 测试8：ExecuteParallel - Func<TResult> 并行计算 / Test 8: ExecuteParallel - Func<TResult> Parallel Computation ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 4,MaxThreads = 8 })) {
+                pool.Start();
+                Group group = pool.GetGroup("ParallelFuncGroup");
+
+                // 创建多个计算任务
+                // Create multiple computation tasks
+                Func<int>[] tasks = new Func<int>[10];
+                for (int i = 0; i < tasks.Length; i++) {
+                    int index = i;
+                    tasks[i] = () => {
+                        Thread.Sleep(100);
+                        return index * index;
+                    };
+                }
+
+                Console.WriteLine($"创建 {tasks.Length} 个计算任务");
+
+                // 执行并行计算
+                // Execute parallel computation
+                DateTime startTime = DateTime.Now;
+                List<ExecuteResult> results = group.ExecuteParallel(tasks);
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n并行计算完成!");
+                Console.WriteLine($"耗时: {elapsed.TotalMilliseconds:F2} ms");
+
+                // 显示结果
+                // Display results
+                Console.WriteLine($"\n结果统计:");
+                Console.WriteLine($"总任务数: {results.Count}");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+
+                Console.WriteLine("\n计算结果:");
+                foreach (var result in results) {
+                    if (result.IsSuccess) {
+                        Console.WriteLine($"  {result.Result}");
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== 测试8完成 / Test 8 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试9：ExecuteParallel - Action 并行执行
+        /// Test 9: ExecuteParallel - Action parallel execution
+        /// </summary>
+        public static void Test9_ExecuteParallel_Action() {
+            Console.WriteLine("=== 测试9：ExecuteParallel - Action 并行执行 / Test 9: ExecuteParallel - Action Parallel Execution ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 4,MaxThreads = 8 })) {
+                pool.Start();
+                Group group = pool.GetGroup("ParallelActionGroup");
+
+                // 创建多个动作任务
+                // Create multiple action tasks
+                Action[] actions = new Action[10];
+                for (int i = 0; i < actions.Length; i++) {
+                    int index = i;
+                    actions[i] = () => {
+                        Thread.Sleep(50);
+                        Console.WriteLine($"任务 {index} 完成");
+                    };
+                }
+
+                Console.WriteLine($"创建 {actions.Length} 个动作任务");
+
+                // 执行并行动作
+                // Execute parallel actions
+                DateTime startTime = DateTime.Now;
+                List<ExecuteResult> results = group.ExecuteParallel(actions);
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n并行执行完成!");
+                Console.WriteLine($"耗时: {elapsed.TotalMilliseconds:F2} ms");
+
+                // 显示结果
+                // Display results
+                Console.WriteLine($"\n结果统计:");
+                Console.WriteLine($"总任务数: {results.Count}");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+            }
+
+            Console.WriteLine("\n=== 测试9完成 / Test 9 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试10：ExecuteParallel 带超时
+        /// Test 10: ExecuteParallel with timeout
+        /// </summary>
+        public static void Test10_ExecuteParallel_WithTimeout() {
+            Console.WriteLine("=== 测试10：ExecuteParallel 带超时 / Test 10: ExecuteParallel with Timeout ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 2,MaxThreads = 4 })) {
+                pool.Start();
+                Group group = pool.GetGroup("TimeoutGroup");
+
+                // 创建不同耗时的任务
+                // Create tasks with different durations
+                Func<int>[] tasks = new Func<int>[5];
+                for (int i = 0; i < tasks.Length; i++) {
+                    int index = i;
+                    tasks[i] = () => {
+                        int sleepTime = 100 + index * 100;  // 100ms, 200ms, 300ms, 400ms, 500ms
+                        Thread.Sleep(sleepTime);
+                        Console.WriteLine($"任务 {index} 耗时 {sleepTime}ms");
+                        return index;
+                    };
+                }
+
+                Console.WriteLine($"创建 {tasks.Length} 个任务，设置总超时 300ms");
+
+                // 执行并行计算（总超时 300ms）
+                // Execute parallel computation (total timeout 300ms)
+                DateTime startTime = DateTime.Now;
+                List<ExecuteResult> results = group.ExecuteParallel(tasks,null,0,3000);
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n等待超时后结束");
+                Console.WriteLine($"实际耗时: {elapsed.TotalMilliseconds:F2} ms");
+
+                // 显示结果
+                // Display results
+                Console.WriteLine($"\n结果统计:");
+                Console.WriteLine($"总任务数: {results.Count}");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"超时/失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+
+                Console.WriteLine("\n成功的结果:");
+                foreach (var result in results) {
+                    if (result.IsSuccess) {
+                        Console.WriteLine($"  任务结果: {result.Result}");
+                    }
+                }
+
+                Console.WriteLine("\n失败的结果:");
+                foreach (var result in results) {
+                    if (!result.IsSuccess) {
+                        Console.WriteLine($"  任务异常: {result.Exception?.Message}");
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== 测试10完成 / Test 10 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试11：ExecuteParallel 带取消令牌
+        /// Test 11: ExecuteParallel with cancellation token
+        /// </summary>
+        public static void Test11_ExecuteParallel_WithCancellation() {
+            Console.WriteLine("=== 测试11：ExecuteParallel 带取消令牌 / Test 11: ExecuteParallel with Cancellation Token ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 2,MaxThreads = 4 })) {
+                pool.Start();
+                Group group = pool.GetGroup("CancelGroup");
+
+                // 创建长时间运行的任务
+                // Create long-running tasks
+                Func<string>[] tasks = new Func<string>[5];
+                for (int i = 0; i < tasks.Length; i++) {
+                    int index = i;
+                    tasks[i] = () => {
+                        for (int j = 0; j < 10; j++) {
+                            Thread.Sleep(100);
+                        }
+                        return $"任务 {index} 完成";
+                    };
+                }
+
+                Console.WriteLine($"创建 {tasks.Length} 个长时间运行的任务");
+
+                // 创建取消令牌
+                // Create cancellation token
+                CancellationTokenSource cts = new CancellationTokenSource();
+
+                // 启动一个定时器来取消任务
+                // Start a timer to cancel tasks
+                System.Timers.Timer timer = new System.Timers.Timer(500);
+                timer.Elapsed += (sender,e) => {
+                    Console.WriteLine("\n触发取消操作...");
+                    cts.Cancel();
+                    timer.Stop();
+                };
+                timer.Start();
+
+                // 执行并行计算（带取消令牌）
+                // Execute parallel computation (with cancellation token)
+                Console.WriteLine("开始并行执行...");
+                DateTime startTime = DateTime.Now;
+                List<ExecuteResult> results = group.ExecuteParallel(tasks,cts);
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n取消后结束");
+                Console.WriteLine($"实际耗时: {elapsed.TotalMilliseconds:F2} ms");
+
+                // 显示结果
+                // Display results
+                Console.WriteLine($"\n结果统计:");
+                Console.WriteLine($"总任务数: {results.Count}");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"取消/失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+
+                timer.Dispose();
+            }
+
+            Console.WriteLine("\n=== 测试11完成 / Test 11 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试12：ExecuteParallel 混合场景
+        /// Test 12: ExecuteParallel mixed scenario
+        /// </summary>
+        public static void Test12_ExecuteParallel_MixedScenario() {
+            Console.WriteLine("=== 测试12：ExecuteParallel 混合场景 / Test 12: ExecuteParallel Mixed Scenario ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 4,MaxThreads = 8 })) {
+                pool.Start();
+                Group group = pool.GetGroup("MixedGroup");
+
+                // 创建混合类型的任务
+                // Create mixed type tasks
+                Func<object>[] tasks = new Func<object>[8];
+                for (int i = 0; i < tasks.Length; i++) {
+                    int index = i;
+                    tasks[i] = () => {
+                        if (index % 2 == 0) {
+                            // 偶数索引：计算任务
+                            Thread.Sleep(50);
+                            return index * 10;
+                        }
+                        else {
+                            // 奇数索引：IO 模拟任务
+                            Thread.Sleep(100);
+                            return $"IO-{index}";
+                        }
+                    };
+                }
+
+                Console.WriteLine($"创建 {tasks.Length} 个混合类型任务");
+
+                // 执行并行计算
+                // Execute parallel computation
+                DateTime startTime = DateTime.Now;
+                List<ExecuteResult> results = group.ExecuteParallel(tasks,null,0,5000);
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n并行执行完成!");
+                Console.WriteLine($"耗时: {elapsed.TotalMilliseconds:F2} ms");
+
+                // 显示结果
+                // Display results
+                Console.WriteLine($"\n结果统计:");
+                Console.WriteLine($"总任务数: {results.Count}");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+
+                Console.WriteLine("\n执行结果:");
+                int successCount = 0;
+                foreach (var result in results) {
+                    if (result.IsSuccess) {
+                        successCount++;
+                        Console.WriteLine($"  {result.Result}");
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== 测试12完成 / Test 12 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试13：空分组处理
+        /// Test 13: Empty group handling
+        /// </summary>
+        public static void Test13_EmptyGroupHandling() {
+            Console.WriteLine("=== 测试13：空分组处理 / Test 13: Empty Group Handling ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 1,MaxThreads = 2 })) {
+                pool.Start();
+                Group group = pool.GetGroup("EmptyGroup");
+
+                // 测试空分组的各种操作
+                // Test various operations on empty group
+
+                Console.WriteLine("测试空分组的 GetMembers:");
+                var members = group.GetMembers();
+                Console.WriteLine($"  成员数量: {new List<WorkID>(members).Count}");
+
+                Console.WriteLine("\n测试空分组的 Wait:");
+                DateTime startTime = DateTime.Now;
+                group.Wait();
+                TimeSpan elapsed = DateTime.Now - startTime;
+                Console.WriteLine($"  Wait 耗时: {elapsed.TotalMilliseconds:F2} ms (应该立即返回)");
+
+                Console.WriteLine("\n测试空分组的 GetResults:");
+                var results = group.GetResults();
+                Console.WriteLine($"  结果数量: {results.Count}");
+
+                Console.WriteLine("\n测试空分组的 GetResultsAndWait:");
+                var waitResults = group.GetResultsAndWait();
+                Console.WriteLine($"  结果数量: {waitResults.Count}");
+
+                Console.WriteLine("\n测试空分组的 Add/Remove:");
+                WorkID dummyWork = pool.QueueWorkItem(() => 1);
+                Console.WriteLine($"  添加工作: {group.Add(dummyWork)}");
+                Console.WriteLine($"  移除工作: {group.Remove(dummyWork)}");
+
+                // 测试 ExecuteParallel 空数组
+                // Test ExecuteParallel with empty array
+                Console.WriteLine("\n测试 ExecuteParallel 空数组:");
+                var emptyResults = group.ExecuteParallel<int>(new Func<int>[0]);
+                Console.WriteLine($"  结果数量: {emptyResults.Count}");
+
+                Console.WriteLine("\n测试 ExecuteParallel Action 空数组:");
+                var emptyActionResults = group.ExecuteParallel(new Action[0]);
+                Console.WriteLine($"  结果数量: {emptyActionResults.Count}");
+            }
+
+            Console.WriteLine("\n=== 测试13完成 / Test 13 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 测试14：大数量任务并行
+        /// Test 14: Large number of parallel tasks
+        /// </summary>
+        public static void Test14_LargeScaleParallel() {
+            Console.WriteLine("=== 测试14：大数量任务并行 / Test 14: Large Scale Parallel Tasks ===\n");
+
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 8,MaxThreads = 16, ThreadQueueLimit=1000 })) {
+                pool.Start();
+                Group group = pool.GetGroup("LargeScaleGroup");
+
+                // 创建大量任务
+                // Create large number of tasks
+                int taskCount = 1000;
+                Func<int>[] tasks = new Func<int>[taskCount];
+                for (int i = 0; i < taskCount; i++) {
+                    int index = i;
+                    tasks[i] = () => {
+                        Thread.Sleep(10);  // 每个任务 10ms
+                        return index;
+                    };
+                }
+
+                Console.WriteLine($"创建 {taskCount} 个任务");
+
+                // 执行并行计算
+                // Execute parallel computation
+                DateTime startTime = DateTime.Now;
+                List<ExecuteResult> results = group.ExecuteParallel(tasks,null,0,30000);
+                TimeSpan elapsed = DateTime.Now - startTime;
+
+                Console.WriteLine($"\n所有任务完成!");
+                Console.WriteLine($"耗时: {elapsed.TotalMilliseconds:F2} ms");
+                Console.WriteLine($"吞吐量: {taskCount / elapsed.TotalSeconds:F0} 任务/秒");
+
+                // 统计结果
+                // Statistics
+                Console.WriteLine($"\n结果统计:");
+                Console.WriteLine($"总任务数: {results.Count}");
+                Console.WriteLine($"成功数量: {results.FindAll(r => r.IsSuccess).Count}");
+                Console.WriteLine($"失败数量: {results.FindAll(r => !r.IsSuccess).Count}");
+                Console.WriteLine($"成功率: {(results.FindAll(r => r.IsSuccess).Count * 100.0 / results.Count):F2}%");
+            }
+
+            Console.WriteLine("\n=== 测试14完成 / Test 14 Completed ===\n");
+        }
+
+        /// <summary>
+        /// 运行所有测试
+        /// Run all tests
+        /// </summary>
+        public static void RunAllTests() {
+            Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║   Group 功能使用测试示例                                       ║");
+            Console.WriteLine("║   Group Functionality Usage Test Examples                       ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════╝\n");
+
+            Test1_BasicGroupOperations();
+            Test2_MultipleGroups();
+            Test3_WorkInMultipleGroups();
+            Test4_GroupAddRemove();
+            Test5_GetResultsAndWait();
+            Test6_PowerPoolGroupManagement();
+            Test7_PerformanceTest();
+            Test8_ExecuteParallel_Func();
+            Test9_ExecuteParallel_Action();
+            Test10_ExecuteParallel_WithTimeout();
+            Test11_ExecuteParallel_WithCancellation();
+            Test12_ExecuteParallel_MixedScenario();
+            Test13_EmptyGroupHandling();
+            Test14_LargeScaleParallel();
+
+            Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║   所有测试完成 / All Tests Completed                              ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════╝\n");
+        }
     }
 }

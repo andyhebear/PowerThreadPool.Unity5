@@ -18,9 +18,9 @@ namespace PowerThreadPool_Net20.Options
         private int _minThreads = 1;
         private TimeSpan _resultCacheExpiration = TimeSpan.FromMinutes(10);
         private bool _enableResultCacheExpiration = true;
-        
+
         /// <summary>
-        /// 最大线程数
+        /// 最大线程数，默认Environment.ProcessorCount * 2
         /// Maximum number of threads
         /// </summary>
         public int MaxThreads
@@ -87,7 +87,7 @@ namespace PowerThreadPool_Net20.Options
         }
         
         /// <summary>
-        /// 最小线程数
+        /// 最小线程数,默认为1就好
         /// Minimum number of threads
         /// </summary>
         public int MinThreads

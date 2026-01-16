@@ -39,7 +39,7 @@ namespace PowerThreadPool_Net20.Threading
         /// 取消操作
         /// Cancel operation
         /// </summary>
-        public void Cancel()
+        internal void Cancel()
         {
             lock (_lock)
             {
@@ -51,7 +51,7 @@ namespace PowerThreadPool_Net20.Threading
         /// 重置令牌
         /// Reset token
         /// </summary>
-        public void Reset()
+        internal void Reset()
         {
             lock (_lock)
             {

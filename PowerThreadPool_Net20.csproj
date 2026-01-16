@@ -39,6 +39,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Collections\ConcurrentQueue_Net20.cs" />
+    <Compile Include="Collections\ConcurrentSet_Net20.cs" />
     <Compile Include="Collections\LockFreeQueue_Net20.cs" />
     <Compile Include="Collections\PriorityQueue_Net20.cs" />
     <Compile Include="Constants\CanCancel_Net20.cs" />
@@ -56,9 +57,11 @@
     <Compile Include="Constants\WorkHeldStates_Net20.cs" />
     <Compile Include="Constants\WorkStealability_Net20.cs" />
     <Compile Include="Core\PowerPool_Net20.cs" />
+    <Compile Include="Core\PowerPool_Net20.Group.cs" />
     <Compile Include="Exceptions\CycleDetectedException_Net20.cs" />
     <Compile Include="Exceptions\WorkExceptionBase_Net20.cs" />
     <Compile Include="Exceptions\WorkRejectedException_Net20.cs" />
+    <Compile Include="Groups\Group_Net20.cs" />
     <Compile Include="Helpers\InterlockedEnumFlag.cs" />
     <Compile Include="Helpers\AtomicFlag.cs" />
     <Compile Include="Helpers\InterlockedHelper.cs" />

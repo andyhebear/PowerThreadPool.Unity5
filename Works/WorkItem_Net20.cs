@@ -38,13 +38,13 @@ namespace PowerThreadPool_Net20.Works
         /// 工作名称（从WorkOption获取）
         /// Work name (from WorkOption)
         /// </summary>
-        public string Name => _option.Name;
+        public string Name => _option.Name+"_"+_id;
 
-        /// <summary>
-        /// 工作分组（从WorkOption获取）
-        /// Work group (from WorkOption)
-        /// </summary>
-        public string Group => _option.Group;
+        ///// <summary>
+        ///// 工作分组（从WorkOption获取）
+        ///// Work group (from WorkOption)
+        ///// </summary>
+        //public string Group => _option.Group;
 
         /// <summary>
         /// 选项
@@ -197,9 +197,9 @@ namespace PowerThreadPool_Net20.Works
             // 创建线程同步信号
             ManualResetEvent executionCompletedEvent = new ManualResetEvent(false);
             bool executionCompleted = false;
-            bool wasCancelled = false;          
             object executionResult = null;
             Exception executionException = null;
+            bool threadAborted = false; // 标记线程是否被主线程中止
 
             // 创建执行线程
             this.ExecuteThread = new Thread(() => {
@@ -212,25 +212,41 @@ namespace PowerThreadPool_Net20.Works
                     // 执行工作方法
                     executionResult = _method.DynamicInvoke();
                 }
+                catch (ThreadAbortException) {
+                    // 线程被主线程中止（Thread.Abort），不设置异常，让主线程处理超时/取消
+                    // Thread was aborted by main thread (Thread.Abort), don't set exception, let main thread handle timeout/cancel
+                    executionException = null;
+                    threadAborted = true;
+                }
                 catch (ThreadInterruptedException) {
-                    // 线程被中断，表示取消操作
-                    wasCancelled = true;
-                    executionException = new OperationCanceledException("Work item execution was interrupted");
+                    // 线程被中断（Thread.Interrupt），表示取消操作
+					//executionException = new OperationCanceledException("Work item execution was interrupted");
+                    // Thread was interrupted (Thread.Interrupt), indicates cancellation
+                    executionException = null;
+                    threadAborted = true;
                 }
                 catch (TargetInvocationException tie) {
                     executionException = tie.InnerException ?? tie;
                 }
                 catch (OperationCanceledException) {
-                    wasCancelled = true;
                     executionException = new OperationCanceledException("Work item execution was cancelled");
                 }
                 catch (Exception ex) {
                     executionException = ex;
                 }
                 finally {
-                    // 设置执行完成标志
-                    executionCompleted = true;
-                    executionCompletedEvent.Set();
+                    // 只有在非中止情况下才标记为完成
+                    // Only mark as completed if not aborted
+                    if (!threadAborted) {
+                        executionCompleted = true;
+                    }
+                    try {
+                        executionCompletedEvent.Set();
+                    }
+                    catch (ObjectDisposedException) {
+                        // 事件已被主线程关闭（超时或取消），忽略此异常
+                        // Event has been closed by main thread (timeout or cancel), ignore this exception
+                    }
                 }
             });
             this.ExecuteThread.Name = $"{this._id}_{this.Name}";
@@ -244,44 +260,31 @@ namespace PowerThreadPool_Net20.Works
             DateTime startWaitTime = DateTime.Now;
             bool isTimeoutCompleted = false;
 
+            // 计算超时截止时间（只计算一次）
+            DateTime? timeoutDeadline = null;
+            if (_option.Timeout.TotalMilliseconds > 0) {
+                timeoutDeadline = startWaitTime + _option.Timeout;
+            }
+
             while (!waitCompleted) {
                 // 检查取消令牌
                 if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
                     // 取消令牌被触发，标记为取消状态
                     isCancellationTokenCompleted = true;
-                    try {
-                        if (this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
-                            // 注意：Thread.Abort 在 .NET Core/.NET 5+ 中已过时
-                            // 这里为了兼容性保留，建议使用 CancellationToken 替代
-                            this.ExecuteThread.Abort();
-                        }
-                    }
-                    catch {
-                    }
+                    AbortThreadSafely();
                     // 设置事件以退出等待
                     executionCompletedEvent.Set();
                     break;
                 }
 
                 // 检查是否超时
-                if (_option.Timeout.TotalMilliseconds < int.MaxValue && _option.Timeout.TotalMilliseconds > 0) {
-                    TimeSpan elapsed = DateTime.Now - startWaitTime;
-                    if (elapsed >= _option.Timeout) {
-                        // 超时，标记为超时状态
-                        isTimeoutCompleted = true;
-                        try {
-                            if (this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
-                                // 注意：Thread.Abort 在 .NET Core/.NET 5+ 中已过时
-                                // 这里为了兼容性保留，建议使用 CancellationToken 替代
-                                this.ExecuteThread.Abort();
-                            }
-                        }
-                        catch {
-                        }
-                        // 设置事件以退出等待
-                        executionCompletedEvent.Set();
-                        break;
-                    }
+                if (timeoutDeadline.HasValue && DateTime.Now >= timeoutDeadline.Value) {
+                    // 超时，标记为超时状态
+                    isTimeoutCompleted = true;
+                    AbortThreadSafely();
+                    // 设置事件以退出等待
+                    executionCompletedEvent.Set();
+                    break;
                 }
 
                 // 等待执行完成或短时间超时
@@ -302,7 +305,7 @@ namespace PowerThreadPool_Net20.Works
             }
 
             // 判断是否需要重试（仅在正常执行完成但失败的情况下）
-            // 修正：executionCompleted && executionException != null 表示执行完成但有异常
+            // 只有在非超时/取消、线程正常完成且有异常的情况下才重试
             if (!isCancellationTokenCompleted && !isTimeoutCompleted &&
                 executionCompleted && executionException != null &&
                 ShouldRetry(executionException) && currentRetryCount < _option.MaxRetries) {
@@ -331,6 +334,26 @@ namespace PowerThreadPool_Net20.Works
                     // 正常完成或执行异常
                     callback(this, executionResult, executionException, currentRetryCount);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 安全地中止执行线程
+        /// Safely abort the execution thread
+        /// </summary>
+        private void AbortThreadSafely() {
+            try {
+                if (this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
+                    // 注意：Thread.Abort 在 .NET Core/.NET 5+ 中已过时
+                    // 这里为了兼容性保留，建议使用 CancellationToken 替代
+                    // Note: Thread.Abort is obsolete in .NET Core/.NET 5+
+                    // Kept here for compatibility, recommend using CancellationToken instead
+                    this.ExecuteThread.Abort();
+                }
+            }
+            catch {
+                // 忽略中止失败
+                // Ignore abort failure
             }
         }
     }

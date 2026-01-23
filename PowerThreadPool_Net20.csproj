@@ -58,6 +58,7 @@
     <Compile Include="Constants\WorkStealability_Net20.cs" />
     <Compile Include="Core\PowerPool_Net20.cs" />
     <Compile Include="Core\PowerPool_Net20.Group.cs" />
+    <Compile Include="Core\PowerPool_Net20.Scheduling.cs" />
     <Compile Include="Exceptions\CycleDetectedException_Net20.cs" />
     <Compile Include="Exceptions\WorkExceptionBase_Net20.cs" />
     <Compile Include="Exceptions\WorkRejectedException_Net20.cs" />
@@ -73,6 +74,7 @@
     <Compile Include="Results\EventArguments_Net20.cs" />
     <Compile Include="Results\ExecuteResult_Net20.cs" />
     <Compile Include="Results\WorkStatusSummary_Net20.cs" />
+    <Compile Include="Scheduling\WorkScheduler_Net20.cs" />
     <Compile Include="Threading\CancellationToken_Net20.cs" />
     <Compile Include="Works\WorkBase_Net20.cs" />
     <Compile Include="Works\WorkerThread_Net20.cs" />

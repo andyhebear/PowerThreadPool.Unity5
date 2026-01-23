@@ -29,6 +29,18 @@ namespace PowerThreadPool_Net20.Works
         private volatile bool _callbackInvoked = false;
 
         /// <summary>
+        /// 是否为延迟工作
+        /// Whether this is delayed work
+        /// </summary>
+        public bool IsDelayedWork { get; set; }
+
+        /// <summary>
+        /// 计划执行时间
+        /// Scheduled execution time
+        /// </summary>
+        public DateTime ExecuteTime { get; set; }
+
+        /// <summary>
         /// 工作ID
         /// Work ID
         /// </summary>

@@ -41,6 +41,7 @@ namespace PowerThreadPool_Net20
         private List<WorkerThread> _workerThreads = new List<WorkerThread>();
         private LockFreePriorityQueue<WorkItem> _workQueue = new LockFreePriorityQueue<WorkItem>(4);
         private LockFreePriorityQueue<WorkItem> _suspendedWorkQueue = new LockFreePriorityQueue<WorkItem>(4);
+        private Dictionary<DateTime, List<WorkItem>> _delayedWorkDictionary; // 延迟工作字典
 
         // 结果缓存（用于ExecuteResult落地）
         private Dictionary<WorkID,ExecuteResult> _resultCache = new Dictionary<WorkID,ExecuteResult>();
@@ -59,8 +60,7 @@ namespace PowerThreadPool_Net20
         // 统计信息
         private int _totalWorkItems = 0;
         private int _completedWorkItems = 0;
-        private int _failedWorkItems = 0;
-        private long _totalQueueTime = 0;
+        private int _failedWorkItems = 0;   
         private long _totalExecuteTime = 0;
         private DateTime _startTime;
 
@@ -280,8 +280,7 @@ namespace PowerThreadPool_Net20
                 // 重置统计信息
                 _totalWorkItems = 0;
                 _completedWorkItems = 0;
-                _failedWorkItems = 0;
-                _totalQueueTime = 0;
+                _failedWorkItems = 0;               
                 _totalExecuteTime = 0;
 
                 // 创建工作线程
@@ -1153,6 +1152,7 @@ namespace PowerThreadPool_Net20
         private void MonitorThreadProc() {
             DateTime lastThreadCleanupTime = DateTime.Now;
             DateTime lastCacheCleanupTime = DateTime.Now;
+            DateTime lastDelayedWorkCheckTime = DateTime.Now;
 
             while (_monitorThreadRunning.Value && IsRunning) {
                 try {
@@ -1169,6 +1169,12 @@ namespace PowerThreadPool_Net20
                     if (DateTime.Now - lastCacheCleanupTime >= TimeSpan.FromSeconds(60)) {
                         CleanupExpiredResults();
                         lastCacheCleanupTime = DateTime.Now;
+                    }
+
+                    // 每秒检查一次延迟工作
+                    if (DateTime.Now - lastDelayedWorkCheckTime >= TimeSpan.FromSeconds(1)) {
+                        CheckAndResumeDelayedWorks();
+                        lastDelayedWorkCheckTime = DateTime.Now;
                     }
 
                     // 使用更高效的等待机制，减少CPU消耗
@@ -1421,7 +1427,7 @@ namespace PowerThreadPool_Net20
             while (IsRunning && !_disposed.Value) {
                 // 首先尝试从无锁队列获取工作项
                 if (_workQueue.TryDequeue(out WorkItem workItem)) {
-                    _logger.Debug($"WorkItem {workItem.ID} dequeued for execution");
+                    _logger.Debug($"WorkItem {workItem?.ID} dequeued for execution");
                     return workItem;
                 }
 
@@ -1689,6 +1695,18 @@ namespace PowerThreadPool_Net20
 
                         // 清理分组字典（新增：防止内存泄漏）
                         SafeDisposeGroups();
+
+                        // 清理延迟工作字典
+                        if (_delayedWorkDictionary != null) {
+                            _delayedWorkDictionary.Clear();
+                            _delayedWorkDictionary = null;
+                        }
+
+                        // 释放工作调度器
+                        if (_scheduler != null) {
+                            _scheduler.Dispose();
+                            _scheduler = null;
+                        }
 
                         // 释放无锁队列资源
                         _workQueue?.Dispose();

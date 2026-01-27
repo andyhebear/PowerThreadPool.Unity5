@@ -155,12 +155,14 @@ namespace PowerThreadPool_Net20.Scheduling
         /// <param name="function">要执行的函数 / Function to execute</param>
         /// <param name="intervalMilliseconds">执行间隔（毫秒）/ Execution interval in milliseconds</param>
         /// <param name="maxExecutions">最大执行次数（null表示无限次）/ Maximum execution count (null means unlimited)</param>
+        /// <param name="executeImmediately">是否立即执行首次任务 / Whether to execute the first task immediately</param>
         /// <param name="option">工作选项 / Work option</param>
         /// <returns>定时任务ID / Scheduled work ID</returns>
         public string ScheduleRecurring<TResult>(
             Func<TResult> function,
             int intervalMilliseconds,
             int? maxExecutions = null,
+            bool executeImmediately = true,
             WorkOption option = null)
         {
             if (function == null)
@@ -175,7 +177,9 @@ namespace PowerThreadPool_Net20.Scheduling
                     "MaxExecutions must be positive if specified");
 
             string scheduledWorkID = Guid.NewGuid().ToString();
-            DateTime executeTime = DateTime.UtcNow.AddMilliseconds(intervalMilliseconds);
+            DateTime executeTime = executeImmediately
+                ? DateTime.UtcNow  // 立即执行首次任务
+                : DateTime.UtcNow.AddMilliseconds(intervalMilliseconds);  // 延迟到第一个间隔
 
             ScheduledWorkInfo workInfo = new ScheduledWorkInfo
             {
@@ -207,12 +211,14 @@ namespace PowerThreadPool_Net20.Scheduling
         /// <param name="action">要执行的动作 / Action to execute</param>
         /// <param name="intervalMilliseconds">执行间隔（毫秒）/ Execution interval in milliseconds</param>
         /// <param name="maxExecutions">最大执行次数（null表示无限次）/ Maximum execution count (null means unlimited)</param>
+        /// <param name="executeImmediately">是否立即执行首次任务 / Whether to execute first task immediately</param>
         /// <param name="option">工作选项 / Work option</param>
         /// <returns>定时任务ID / Scheduled work ID</returns>
         public string ScheduleRecurring(
             Action action,
             int intervalMilliseconds,
             int? maxExecutions = null,
+            bool executeImmediately = true,
             WorkOption option = null)
         {
             if (action == null)
@@ -224,7 +230,7 @@ namespace PowerThreadPool_Net20.Scheduling
                 return null;
             };
 
-            return ScheduleRecurring(function, intervalMilliseconds, maxExecutions, option);
+            return ScheduleRecurring(function, intervalMilliseconds, maxExecutions, executeImmediately, option);
         }
 
         /// <summary>

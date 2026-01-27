@@ -41,6 +41,7 @@ namespace PowerThreadPool_Net20.Collections
         public int Count
         {
             get { return _count; }
+            //get { return Thread.VolatileRead(ref _count); }
         }
 
         /// <summary>
@@ -154,11 +155,20 @@ namespace PowerThreadPool_Net20.Collections
                         {
                             // CAS成功后再读取值，确保一致性
                             item = next.Value;
+
+                            // 添加 null 检查，防止返回 null 值
+                            if (item == null && !typeof(T).IsValueType)
+                            {
+                                // 如果返回了 null，说明节点值被提前清理，重试
+                                Interlocked.CompareExchange(ref _head, head, next);  // 回退
+                                continue;
+                            }
+
                             Interlocked.Decrement(ref _count);
                             Thread.MemoryBarrier(); // 确保内存屏障
-                            
-                            // 清理旧节点的引用，帮助GC
-                            head.Value = default(T);
+
+                            // 延迟清理节点的值引用，防止并发读取到已清理的值
+                            // 只清理 Next 引用，帮助 GC
                             head.Next = null;
                             return true;
                         }
@@ -190,7 +200,10 @@ namespace PowerThreadPool_Net20.Collections
             if (_disposing != 0)
                 return false;
 
-            while (true)
+            int retryCount = 0;
+            const int maxRetries = 3;  // 限制重试次数，防止无限循环
+
+            while (retryCount < maxRetries)
             {
                 Node<T> head = _head;
                 Node<T> tail = _tail;
@@ -212,14 +225,26 @@ namespace PowerThreadPool_Net20.Collections
                     }
                     else
                     {
-                        Thread.MemoryBarrier(); // 确保内存屏障
-                        // 返回next节点的值
+                        // 直接读取下一个节点的值
                         item = next.Value;
+
+                        // 添加 null 检查，防止无限循环
+                        if (!typeof(T).IsValueType && item == null)
+                        {
+                            // 如果值为 null，重试
+                            retryCount++;
+                            continue;
+                        }
+
                         return true;
                     }
                 }
             }
+
+            // 超过重试次数，返回 false
+            return false;
         }
+               
 
         /// <summary>
         /// 清空队列
@@ -376,6 +401,12 @@ namespace PowerThreadPool_Net20.Collections
             {
                 if (_queues[i].TryDequeue(out item))
                 {
+                    // 添加 null 检查，防止返回 null 值
+                    if (item == null && !typeof(T).IsValueType)
+                    {
+                        // 如果返回了 null，继续尝试下一个优先级队列
+                        continue;
+                    }
                     return true;
                 }
             }
@@ -397,7 +428,17 @@ namespace PowerThreadPool_Net20.Collections
             if (priority < 0 || priority >= _priorityCount)
                 return false;
 
-            return _queues[priority].TryDequeue(out item);
+            if (_queues[priority].TryDequeue(out item))
+            {
+                // 添加 null 检查，与无参重载保持一致
+                if (item == null)
+                {
+                    return false;
+                }
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

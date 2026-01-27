@@ -126,20 +126,34 @@ namespace PowerThreadPool_Net20.Groups
                 TimeSpan.FromMilliseconds(execTaskTimeoutMs),
                cancelTokenSrc?.Token);
 
-            // 创建所有任务
-            foreach (var task in tasks) {
-                if (task == null)
-                    continue;
+            // 保存原始的缓存过期设置
+            bool originalExpirationSetting = _powerPool.Options.EnableResultCacheExpiration;
 
-                WorkID workId = _powerPool.QueueWorkItem<TResult>(task,wo);
-                workIds.Add(workId);
-                this.Add(workId);
+            try
+            {
+                // 临时禁用结果缓存过期，防止在等待期间结果被清理
+                _powerPool.Options.EnableResultCacheExpiration = false;
+
+                // 创建所有任务
+                foreach (var task in tasks) {
+                    if (task == null)
+                        continue;
+
+                    WorkID workId = _powerPool.QueueWorkItem<TResult>(task,wo);
+                    workIds.Add(workId);
+                    this.Add(workId);
+                }
+
+                // 等待所有任务完成
+                if (workIds.Count > 0) {
+                    var tempResults = _powerPool.GetResultsAndWait(workIds.ToArray(),waitTimeoutMs);
+                    results.AddRange(tempResults);
+                }
             }
-
-            // 等待所有任务完成
-            if (workIds.Count > 0) {
-                var tempResults = _powerPool.GetResultsAndWait(workIds.ToArray(),waitTimeoutMs);
-                results.AddRange(tempResults);
+            finally
+            {
+                // 恢复原始的缓存过期设置
+                _powerPool.Options.EnableResultCacheExpiration = originalExpirationSetting;
             }
 
             return results;
@@ -163,20 +177,35 @@ namespace PowerThreadPool_Net20.Groups
                TimeSpan.FromMilliseconds(execTaskTimeoutMs),
                  cancelTokenSrc?.Token
             );
-            // 创建所有任务
-            foreach (var action in actions) {
-                if (action == null)
-                    continue;
 
-                WorkID workId = _powerPool.QueueWorkItem(action,wo);
-                workIds.Add(workId);
-                this.Add(workId);
+            // 保存原始的缓存过期设置
+            bool originalExpirationSetting = _powerPool.Options.EnableResultCacheExpiration;
+
+            try
+            {
+                // 临时禁用结果缓存过期，防止在等待期间结果被清理
+                _powerPool.Options.EnableResultCacheExpiration = false;
+
+                // 创建所有任务
+                foreach (var action in actions) {
+                    if (action == null)
+                        continue;
+
+                    WorkID workId = _powerPool.QueueWorkItem(action,wo);
+                    workIds.Add(workId);
+                    this.Add(workId);
+                }
+
+                // 等待所有任务完成
+                if (workIds.Count > 0) {
+                    var tempResults = _powerPool.GetResultsAndWait(workIds.ToArray(),waitTimeoutMs);
+                    results.AddRange(tempResults);
+                }
             }
-
-            // 等待所有任务完成
-            if (workIds.Count > 0) {
-                var tempResults = _powerPool.GetResultsAndWait(workIds.ToArray(),waitTimeoutMs);
-                results.AddRange(tempResults);
+            finally
+            {
+                // 恢复原始的缓存过期设置
+                _powerPool.Options.EnableResultCacheExpiration = originalExpirationSetting;
             }
 
             return results;

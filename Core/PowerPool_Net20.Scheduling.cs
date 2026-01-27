@@ -85,7 +85,7 @@ namespace PowerThreadPool_Net20
             int? maxExecutions = null,
             WorkOption option = null)
         {
-            return Scheduler.ScheduleRecurring(function, intervalMilliseconds, maxExecutions, option);
+            return Scheduler.ScheduleRecurring(function, intervalMilliseconds, maxExecutions, true,option);
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace PowerThreadPool_Net20
             int? maxExecutions = null,
             WorkOption option = null)
         {
-            return Scheduler.ScheduleRecurring(action, intervalMilliseconds, maxExecutions, option);
+            return Scheduler.ScheduleRecurring(action, intervalMilliseconds, maxExecutions,true, option);
         }
 
         /// <summary>

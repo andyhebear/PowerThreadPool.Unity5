@@ -5,44 +5,233 @@ using System.Threading;
 
 namespace PowerThreadPool_Net20.Collections
 {
-    /// <summary>
-    /// 无锁队列节点
-    /// Lock-free queue node
-    /// </summary>
-    /// <typeparam name="T">节点数据类型</typeparam>
-    internal class Node<T>
+    internal class SingleLinkNode<T>
     {
-        public T Value;
-        public Node<T> Next;
-
-        public Node(T value)
-        {
-            Value = value;
-            Next = null;
-        }
+        public SingleLinkNode<T> Next;
+        public T Item;
     }
-
     /// <summary>
-    /// 无锁队列实现
-    /// Lock-free queue implementation
-    /// </summary>
-    /// <typeparam name="T">队列元素类型</typeparam>
-    public class LockFreeQueue<T> : IDisposable
+	/// Represents a lock-free, thread-safe, last-in, first-out collection of objects.
+	/// </summary>
+	/// <typeparam name="T">specifies the type of the elements in the stack</typeparam>
+    public class LockFreeStack<T>:IDisposable
     {
-        private volatile Node<T> _head;
-        private volatile Node<T> _tail;
-        private volatile int _count;
+        private SingleLinkNode<T> _head;
         private volatile int _disposing;
+        private int _count;
 
         /// <summary>
-        /// 队列元素数量（近似值）
-        /// Approximate queue element count
+        /// 获取栈中的元素数量
+        /// Gets the number of elements in the stack
         /// </summary>
         public int Count
         {
-            get { return _count; }
-            //get { return Thread.VolatileRead(ref _count); }
+            get { return Thread.VolatileRead(ref _count); }
         }
+
+        /// <summary>
+        /// Default constructors.
+        /// </summary>
+        public LockFreeStack() {
+            _head = new SingleLinkNode<T>();
+        }
+
+        /// <summary>
+        /// Inserts an object at the top of the stack.
+        /// </summary>
+        /// <param name="item">the object to push onto the stack</param>
+        public void Push(T item) {
+            SingleLinkNode<T> newNode = new SingleLinkNode<T>();
+            newNode.Item = item;
+
+            do {
+                newNode.Next = _head.Next;
+            } while (Interlocked.CompareExchange<SingleLinkNode<T>>(ref _head.Next,newNode,newNode.Next) != newNode.Next);
+
+            Interlocked.Increment(ref _count);
+        }
+
+        /// <summary>
+        /// Removes and returns the object at the top of the stack.
+        /// </summary>
+        /// <param name="item">
+        /// when the method returns, contains the object removed from the top of the stack, 
+        /// if the queue is not empty; otherwise it is the default value for the element type
+        /// </param>
+        /// <returns>
+        /// true if an object from removed from the top of the stack 
+        /// false if the stack is empty
+        /// </returns>
+        public bool Pop(out T item) {
+            SingleLinkNode<T> node;
+
+            do {
+                node = _head.Next;
+
+                if (node == null) {
+                    item = default(T);
+                    return false;
+                }
+            } while (Interlocked.CompareExchange<SingleLinkNode<T>>(ref _head.Next,node.Next,node) != node);
+
+            item = node.Item;
+
+            Interlocked.Decrement(ref _count);
+            return true;
+        }
+
+        /// <summary>
+        /// Removes and returns the object at the top of the stack.
+        /// </summary>
+        /// <returns>the object that is removed from the top of the stack</returns>
+        public T Pop() {
+            T result;
+
+            if (!Pop(out result))
+                throw new InvalidOperationException("the stack is empty");
+
+            return result;
+        }
+
+        /// <summary>
+        /// 查看栈顶元素但不移除
+        /// Peeks at the top of the stack without removing it
+        /// </summary>
+        /// <param name="item">when the method returns, contains the object at the top of the stack</param>
+        /// <returns>true if the stack is not empty; otherwise, false</returns>
+        public bool TryPeek(out T item) {
+            SingleLinkNode<T> node = _head.Next;
+
+            if (node == null) {
+                item = default(T);
+                return false;
+            }
+
+            item = node.Item;
+            return true;
+        }
+
+        /// <summary>
+        /// 查看栈顶元素但不移除
+        /// Peeks at the top of the stack without removing it
+        /// </summary>
+        /// <returns>the object at the top of the stack</returns>
+        public T Peek() {
+            T result;
+
+            if (!TryPeek(out result))
+                throw new InvalidOperationException("the stack is empty");
+
+            return result;
+        }
+
+        /// <summary>
+        /// 清空栈
+        /// Clears the stack
+        /// </summary>
+        /// <remarks>This method is not thread-safe.</remarks>
+        public void Clear() {
+            SingleLinkNode<T> tempNode;
+            SingleLinkNode<T> currentNode = _head;
+
+            while (currentNode != null) {
+                tempNode = currentNode;
+                currentNode = currentNode.Next;
+
+                tempNode.Item = default(T);
+                tempNode.Next = null;
+            }
+
+            _head = new SingleLinkNode<T>();
+            _count = 0;
+        }
+
+        /// <summary>
+        /// 将栈元素复制到数组
+        /// Copies the stack elements to an array
+        /// </summary>
+        /// <returns>an array containing all elements in the stack</returns>
+        public T[] ToArray() {
+            // 检查是否正在释放
+            if (_disposing != 0)
+                return new T[0];
+
+            var snapshot = new List<T>();
+            SingleLinkNode<T> currentNode = _head.Next;
+
+            Thread.MemoryBarrier();
+
+            while (currentNode != null)
+            {
+                snapshot.Add(currentNode.Item);
+                currentNode = currentNode.Next;
+
+                // 防止无限循环，设置合理上限
+                if (snapshot.Count > _count * 2)
+                    break;
+            }
+
+            return snapshot.ToArray();
+        }
+
+        #region IDisposable Support
+
+        private bool _disposed = false;
+
+        /// <summary>
+        /// 检查栈是否正在释放
+        /// Check if stack is being disposed
+        /// </summary>
+        public bool IsDisposing
+        {
+            get { return _disposing != 0; }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (Interlocked.CompareExchange(ref _disposing, 1, 0) == 0)
+            {
+                if (disposing)
+                {
+                    // 等待其他操作完成，然后清理所有节点的引用
+                    Thread.Sleep(1);
+
+                    SingleLinkNode<T> currentNode = _head;
+                    while (currentNode != null)
+                    {
+                        SingleLinkNode<T> next = currentNode.Next;
+                        currentNode.Item = default(T);
+                        currentNode.Next = null;
+                        currentNode = next;
+                    }
+
+                    _head = null;
+                }
+                _disposed = true;
+            }
+        }
+
+        /// <summary>
+        /// Releases all resources used by the stack.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        #endregion
+    }
+    /// <summary>
+    /// Represents a lock-free, thread-safe, first-in, first-out collection of objects.
+    /// </summary>
+    /// <typeparam name="T">specifies the type of the elements in the queue</typeparam>
+    /// <remarks>Enumeration and clearing are not thread-safe.</remarks>
+    public class LockFreeQueue<T> : IEnumerable<T>,IDisposable
+    {
+        private SingleLinkNode<T> _head;
+        private SingleLinkNode<T> _tail;
+        private int _count;
+        private volatile int _disposing;
 
         /// <summary>
         /// 检查队列是否正在释放
@@ -54,185 +243,136 @@ namespace PowerThreadPool_Net20.Collections
         }
 
         /// <summary>
-        /// 构造函数
-        /// Constructor
+        /// Default constructor.
         /// </summary>
-        public LockFreeQueue()
-        {
-            // 创建哑节点，简化入队操作
-            Node<T> dummy = new Node<T>(default(T));
-            _head = dummy;
-            _tail = dummy;
-            _count = 0;
+        public LockFreeQueue() {
+            _head = new SingleLinkNode<T>();
+            _tail = _head;
         }
 
-        /// <summary>
-        /// 入队操作
-        /// Enqueue operation
-        /// </summary>
-        /// <param name="item">要入队的元素</param>
-        public void Enqueue(T item)
-        {
-            if (item == null)
-                throw new ArgumentNullException(nameof(item));
-
-            // 检查是否正在释放
-            if (_disposing != 0)
-                throw new ObjectDisposedException("LockFreeQueue");
-
-            Node<T> newNode = new Node<T>(item);
-            Node<T> tail;
-            Node<T> next;
-
-            while (true)
-            {
-                tail = _tail;
-                next = tail.Next;
-
-                // 检查tail是否仍然指向队列末尾
-                if (tail == _tail)
-                {
-                    if (next == null)
-                    {
-                        // tail确实指向队尾，尝试插入新节点
-                        // 使用object版本的Interlocked.CompareExchange并进行类型转换
-                        if ((Node<T>)Interlocked.CompareExchange(ref tail.Next, newNode, null) == null)
-                        {
-                            // 插入成功，更新tail指向新节点
-                            Interlocked.CompareExchange(ref _tail, newNode, tail);
-                            Interlocked.Increment(ref _count);
-                            Thread.MemoryBarrier(); // 确保内存屏障
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        // tail不是指向队尾，帮助推进tail
-                        Interlocked.CompareExchange(ref _tail, next, tail);
-                    }
-                }
+        public LockFreeQueue(IEnumerable<T> items) : this() {
+            foreach (var item in items) {
+                Enqueue(item);
             }
         }
 
         /// <summary>
-        /// 出队操作
-        /// Dequeue operation
+        /// Gets the number of elements contained in the queue.
         /// </summary>
-        /// <param name="item">出队的元素</param>
-        /// <returns>是否成功出队</returns>
-        public bool TryDequeue(out T item)
-        {
+        public int Count {
+            get { return Thread.VolatileRead(ref _count); }
+        }
+
+        /// <summary>
+        /// Adds an object to the end of the queue.
+        /// </summary>
+        /// <param name="item">the object to add to the queue</param>
+        public void Enqueue(T item) {
+            SingleLinkNode<T> oldTail = null;
+            SingleLinkNode<T> oldTailNext;
+
+            var newNode = new SingleLinkNode<T> { Item = item };
+
+            bool newNodeWasAdded = false;
+
+            while (!newNodeWasAdded) {
+                oldTail = _tail;
+                oldTailNext = oldTail.Next;
+
+                if (_tail == oldTail) {
+                    if (oldTailNext == null) {
+                        newNodeWasAdded =
+                            Interlocked.CompareExchange<SingleLinkNode<T>>(ref _tail.Next,newNode,null) == null;
+                    }
+                    else {
+                        Interlocked.CompareExchange<SingleLinkNode<T>>(ref _tail,oldTailNext,oldTail);
+                    }
+                }
+            }
+
+            Interlocked.CompareExchange<SingleLinkNode<T>>(ref _tail,newNode,oldTail);
+            Interlocked.Increment(ref _count);
+        }
+
+        public T TryDequeue() {
+            T item;
+            TryDequeue(out item);
+            return item;
+        }
+
+        /// <summary>
+        /// Removes and returns the object at the beginning of the queue.
+        /// </summary>
+        /// <param name="item">
+        /// when the method returns, contains the object removed from the beginning of the queue, 
+        /// if the queue is not empty; otherwise it is the default value for the element type
+        /// </param>
+        /// <returns>
+        /// true if an object from removed from the beginning of the queue; 
+        /// false if the queue is empty
+        /// </returns>
+        public bool TryDequeue(out T item) {
             item = default(T);
+            SingleLinkNode<T> oldHead = null;
 
-            // 检查是否正在释放
-            if (_disposing != 0)
-                return false;
+            bool haveAdvancedHead = false;
+            while (!haveAdvancedHead) {
+                oldHead = _head;
+                SingleLinkNode<T> oldTail = _tail;
+                SingleLinkNode<T> oldHeadNext = oldHead.Next;
 
-            while (true)
-            {
-                Node<T> head = _head;
-                Node<T> tail = _tail;
-                Node<T> next = head.Next;
-
-                // 检查head是否仍然指向队列头部
-                if (head == _head)
-                {
-                    if (head == tail)
-                    {
-                        if (next == null)
-                        {
-                            // 队列为空
+                if (oldHead == _head) {
+                    if (oldHead == oldTail) {
+                        if (oldHeadNext == null)
                             return false;
-                        }
 
-                        // 推进tail指向next
-                        Interlocked.CompareExchange(ref _tail, next, tail);
+                        Interlocked.CompareExchange<SingleLinkNode<T>>(ref _tail,oldHeadNext,oldTail);
                     }
-                    else
-                    {
-                        // 尝试推进head指向next
-                        if (Interlocked.CompareExchange(ref _head, next, head) == head)
-                        {
-                            // CAS成功后再读取值，确保一致性
-                            item = next.Value;
 
-                            // 添加 null 检查，防止返回 null 值
-                            if (item == null && !typeof(T).IsValueType)
-                            {
-                                // 如果返回了 null，说明节点值被提前清理，重试
-                                Interlocked.CompareExchange(ref _head, head, next);  // 回退
-                                continue;
-                            }
-
-                            Interlocked.Decrement(ref _count);
-                            Thread.MemoryBarrier(); // 确保内存屏障
-
-                            // 延迟清理节点的值引用，防止并发读取到已清理的值
-                            // 只清理 Next 引用，帮助 GC
-                            head.Next = null;
-                            return true;
-                        }
+                    else {
+                        item = oldHeadNext.Item;
+                        haveAdvancedHead =
+                          Interlocked.CompareExchange<SingleLinkNode<T>>(ref _head,oldHeadNext,oldHead) == oldHead;
                     }
                 }
             }
+
+            Interlocked.Decrement(ref _count);
+            return true;
         }
 
         /// <summary>
-        /// 检查队列是否为空
-        /// Check if queue is empty
+        /// 查看队首元素但不移除
+        /// Peeks at the first element without removing it
         /// </summary>
-        public bool IsEmpty
-        {
-            get { return _count == 0; }
-        }
-
-        /// <summary>
-        /// 尝试查看队首元素（不移除）
-        /// Try peek at the first element without removing
-        /// </summary>
-        /// <param name="item">队首元素</param>
-        /// <returns>是否成功查看</returns>
+        /// <param name="item">when the method returns, contains the object at the front of the queue</param>
+        /// <returns>true if the queue is not empty; otherwise, false</returns>
         public bool TryPeek(out T item)
         {
             item = default(T);
 
-            // 检查是否正在释放
-            if (_disposing != 0)
-                return false;
-
-            int retryCount = 0;
-            const int maxRetries = 3;  // 限制重试次数，防止无限循环
-
-            while (retryCount < maxRetries)
+            while (true)
             {
-                Node<T> head = _head;
-                Node<T> tail = _tail;
-                Node<T> next = head.Next;
+                SingleLinkNode<T> oldHead = _head;
+                SingleLinkNode<T> oldTail = _tail;
+                SingleLinkNode<T> oldHeadNext = oldHead.Next;
 
-                // 检查head是否仍然指向队列头部
-                if (head == _head)
+                if (oldHead == _head)
                 {
-                    if (head == tail)
+                    if (oldHead == oldTail)
                     {
-                        if (next == null)
-                        {
-                            // 队列为空
+                        if (oldHeadNext == null)
                             return false;
-                        }
 
-                        // 推进tail指向next
-                        Interlocked.CompareExchange(ref _tail, next, tail);
+                        Interlocked.CompareExchange<SingleLinkNode<T>>(ref _tail,oldHeadNext,oldTail);
                     }
                     else
                     {
-                        // 直接读取下一个节点的值
-                        item = next.Value;
+                        item = oldHeadNext.Item;
 
-                        // 添加 null 检查，防止无限循环
                         if (!typeof(T).IsValueType && item == null)
                         {
                             // 如果值为 null，重试
-                            retryCount++;
                             continue;
                         }
 
@@ -240,19 +380,92 @@ namespace PowerThreadPool_Net20.Collections
                     }
                 }
             }
-
-            // 超过重试次数，返回 false
-            return false;
         }
-               
 
         /// <summary>
-        /// 清空队列
-        /// Clear the queue
+        /// 查看队首元素但不移除
+        /// Peeks at the first element without removing it
         /// </summary>
-        public void Clear()
+        /// <returns>the object at the front of the queue</returns>
+        public T Peek()
         {
-            while (TryDequeue(out _)) { }
+            T result;
+
+            if (!TryPeek(out result))
+                throw new InvalidOperationException("the queue is empty");
+
+            return result;
+        }
+
+        /// <summary>
+        /// Removes and returns the object at the beginning of the queue.
+        /// </summary>
+        /// <returns>the object that is removed from the beginning of the queue</returns>
+        public T Dequeue() {
+            T result;
+
+            if (!TryDequeue(out result)) {
+                throw new InvalidOperationException("the queue is empty");
+            }
+
+            return result;
+        }
+
+        #region IEnumerable<T> Members
+
+        /// <summary>
+        /// Returns an enumerator that iterates through the queue.
+        /// </summary>
+        /// <returns>an enumerator for the queue</returns>
+        public IEnumerator<T> GetEnumerator() {
+            SingleLinkNode<T> currentNode = _head;
+
+            do {
+                if (currentNode.Item == null) {
+                    yield break;
+                }
+                else {
+                    yield return currentNode.Item;
+                }
+            }
+            while ((currentNode = currentNode.Next) != null);
+
+            yield break;
+        }
+
+        #endregion
+
+        #region IEnumerable Members
+
+        /// <summary>
+        /// Returns an enumerator that iterates through the queue.
+        /// </summary>
+        /// <returns>an enumerator for the queue</returns>
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Clears the queue.
+        /// </summary>
+        /// <remarks>This method is not thread-safe.</remarks>
+        public void Clear() {
+            SingleLinkNode<T> tempNode;
+            SingleLinkNode<T> currentNode = _head;
+
+            while (currentNode != null) {
+                tempNode = currentNode;
+                currentNode = currentNode.Next;
+
+                tempNode.Item = default(T);
+                tempNode.Next = null;
+            }
+
+            _head = new SingleLinkNode<T>();
+            _tail = _head;
+            _count = 0;
         }
 
         /// <summary>
@@ -266,17 +479,16 @@ namespace PowerThreadPool_Net20.Collections
             if (_disposing != 0)
                 return new T[0];
 
-            // 创建快照，避免并发修改问题
             var snapshot = new List<T>();
-            Node<T> current = _head.Next;
-            
-            Thread.MemoryBarrier(); // 确保内存屏障
-            
-            while (current != null)
+            SingleLinkNode<T> currentNode = _head.Next;
+
+            Thread.MemoryBarrier();
+
+            while (currentNode != null)
             {
-                snapshot.Add(current.Value);
-                current = current.Next;
-                
+                snapshot.Add(currentNode.Item);
+                currentNode = currentNode.Next;
+
                 // 防止无限循环，设置合理上限
                 if (snapshot.Count > _count * 2)
                     break;
@@ -296,20 +508,21 @@ namespace PowerThreadPool_Net20.Collections
                 if (disposing)
                 {
                     // 等待其他操作完成，然后清理所有节点的引用
-                    Thread.Sleep(1); // 给其他线程一个完成的机会
-                    
-                    Node<T> current = _head;
-                    while (current != null)
+                    Thread.Sleep(1);
+
+                    SingleLinkNode<T> currentNode = _head;
+                    while (currentNode != null)
                     {
-                        Node<T> next = current.Next;
-                        current.Value = default(T);
-                        current.Next = null;
-                        current = next;
+                        SingleLinkNode<T> next = currentNode.Next;
+                        currentNode.Item = default(T);
+                        currentNode.Next = null;
+                        currentNode = next;
                     }
-                    
+
                     _head = null;
                     _tail = null;
                 }
+                _disposed = true;
             }
         }
 
@@ -412,6 +625,49 @@ namespace PowerThreadPool_Net20.Collections
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 查看队首元素（按优先级）但不移除
+        /// Peeks at the first element (by priority) without removing it
+        /// </summary>
+        /// <param name="item">when the method returns, contains the object at the front of the queue</param>
+        /// <returns>true if the queue is not empty; otherwise, false</returns>
+        public bool TryPeek(out T item)
+        {
+            item = null;
+
+            // 按优先级从高到低尝试查看
+            for (int i = 0; i < _priorityCount; i++)
+            {
+                if (_queues[i].TryPeek(out item))
+                {
+                    // 添加 null 检查，防止返回 null 值
+                    if (item == null && !typeof(T).IsValueType)
+                    {
+                        // 如果返回了 null，继续尝试下一个优先级队列
+                        continue;
+                    }
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 查看队首元素（按优先级）但不移除
+        /// Peeks at the first element (by priority) without removing it
+        /// </summary>
+        /// <returns>the object at the front of the queue</returns>
+        public T Peek()
+        {
+            T result;
+
+            if (!TryPeek(out result))
+                throw new InvalidOperationException("the queue is empty");
+
+            return result;
         }
 
         /// <summary>

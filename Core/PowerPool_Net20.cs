@@ -1428,15 +1428,15 @@ namespace PowerThreadPool_Net20
                 // 首先尝试从无锁队列获取工作项
                 if (_workQueue.TryDequeue(out WorkItem workItem)) {
                     // 添加 null 检查，防止返回 null 值
-                    if (workItem != null) {
+                    //if (workItem != null) {
                         _logger.Debug($"WorkItem {workItem.ID} dequeued for execution");
                         return workItem;
-                    }
-                    else {
-                        // 如果返回了 null，记录警告并继续尝试
-                        _logger.Warning("TryDequeue returned null WorkItem, retrying...");
-                        continue;
-                    }
+                    //}
+                    //else {
+                    //    // 如果返回了 null，记录警告并继续尝试
+                    //    _logger.Warning("TryDequeue returned null WorkItem, retrying...");
+                    //    continue;
+                    //}
                 }
 
                 // 如果队列为空，等待一段时间后重试

@@ -41,7 +41,7 @@ namespace PowerThreadPool_Net20
         private List<WorkerThread> _workerThreads = new List<WorkerThread>();
         private LockFreePriorityQueue<WorkItem> _workQueue = new LockFreePriorityQueue<WorkItem>(4);
         private LockFreePriorityQueue<WorkItem> _suspendedWorkQueue = new LockFreePriorityQueue<WorkItem>(4);
-        private Dictionary<DateTime, List<WorkItem>> _delayedWorkDictionary; // 延迟工作字典
+      
 
         // 结果缓存（用于ExecuteResult落地）
         private Dictionary<WorkID,ExecuteResult> _resultCache = new Dictionary<WorkID,ExecuteResult>();
@@ -620,50 +620,8 @@ namespace PowerThreadPool_Net20
         public ExecuteResult[] GetResultsAndWait(WorkID[] workIds,int timeoutMs = 30000) {
             CheckDisposed();
 
-            if (workIds == null)
-                throw new ArgumentNullException(nameof(workIds));
-
-            if (workIds.Length == 0)
-                return new ExecuteResult[0];
-
-            // 批量等待优化：使用总超时时间等待所有工作
-            DateTime startTime = DateTime.Now;
-            int remainingTimeout = timeoutMs;
-
-            // 等待所有工作完成（循环直到全部完成或超时）
-            while (remainingTimeout > 0) {
-                // 检查是否所有工作都已完成
-                bool allCompleted = true;
-                int currentCompletedCount = 0;
-
-                lock (_resultCacheLock) {
-                    foreach (var workId in workIds) {
-                        if (_resultCache.ContainsKey(workId)) {
-                            currentCompletedCount++;
-                        }
-                        else {
-                            allCompleted = false;
-                        }
-                    }
-                }
-
-                // 如果所有工作都已完成，退出循环
-                if (allCompleted) {
-                    break;
-                }
-
-                // 计算剩余超时时间
-                long elapsed = (DateTime.Now - startTime).Ticks / TimeSpan.TicksPerMillisecond;
-                remainingTimeout = Math.Max(0,timeoutMs - (int)elapsed);
-
-                if (remainingTimeout <= 0) {
-                    break;
-                }
-
-                // 短暂等待后重试
-                int waitTime = Math.Min(50,remainingTimeout);
-                Thread.Sleep(waitTime);
-            }
+            // 等待工作完成
+            WaitWorks(workIds,timeoutMs);
 
             // 获取所有结果
             return GetResults(workIds);
@@ -1154,6 +1112,12 @@ namespace PowerThreadPool_Net20
             DateTime lastCacheCleanupTime = DateTime.Now;
             DateTime lastDelayedWorkCheckTime = DateTime.Now;
 
+            // 自适应延迟检查间隔（毫秒）
+            // Adaptive delayed work check interval (milliseconds)
+            int adaptiveCheckInterval = 10;  // 默认 10ms
+            //const int MIN_CHECK_INTERVAL = 10;    // 最小 10ms
+            //const int MAX_CHECK_INTERVAL = 1000;  // 最大 1000ms
+
             while (_monitorThreadRunning.Value && IsRunning) {
                 try {
                     // 检查线程池空闲状态
@@ -1171,15 +1135,20 @@ namespace PowerThreadPool_Net20
                         lastCacheCleanupTime = DateTime.Now;
                     }
 
-                    // 每秒检查一次延迟工作
-                    if (DateTime.Now - lastDelayedWorkCheckTime >= TimeSpan.FromSeconds(1)) {
+                    // 自适应检查延迟工作
+                    // Adaptive check for delayed work
+                    DateTime now = DateTime.Now;
+                    if (now - lastDelayedWorkCheckTime >= TimeSpan.FromMilliseconds(adaptiveCheckInterval)) {
                         CheckAndResumeDelayedWorks();
-                        lastDelayedWorkCheckTime = DateTime.Now;
+                        // 计算下一个检查间隔（自适应）
+                        // Calculate next check interval (adaptive)
+                        //adaptiveCheckInterval = CalculateAdaptiveCheckInterval(now, MIN_CHECK_INTERVAL, MAX_CHECK_INTERVAL);
+                        lastDelayedWorkCheckTime = now;
                     }
 
-                    // 使用更高效的等待机制，减少CPU消耗
-                    // 同时允许被中断以快速响应取消请求
-                    Monitor.Wait(_lockObject,50);
+                    // 使用自适应等待机制
+                    // Use adaptive wait mechanism
+                    Monitor.Wait(_lockObject, Math.Min(adaptiveCheckInterval, 50));
                 }
                 catch (ThreadAbortException) {
                     // 线程被中止，正常退出
@@ -1203,6 +1172,7 @@ namespace PowerThreadPool_Net20
                 }
             }
         }
+             
 
         /// <summary>
         /// 清理过期的结果缓存
@@ -1711,17 +1681,9 @@ namespace PowerThreadPool_Net20
                         // 清理分组字典（新增：防止内存泄漏）
                         SafeDisposeGroups();
 
-                        // 清理延迟工作字典
-                        if (_delayedWorkDictionary != null) {
-                            _delayedWorkDictionary.Clear();
-                            _delayedWorkDictionary = null;
-                        }
-
-                        // 释放工作调度器
-                        if (_scheduler != null) {
-                            _scheduler.Dispose();
-                            _scheduler = null;
-                        }
+                        // 清理延迟工作字典 & 释放工作调度器                 
+                        SafeDisposeScheduler();
+                        //                        
 
                         // 释放无锁队列资源
                         _workQueue?.Dispose();

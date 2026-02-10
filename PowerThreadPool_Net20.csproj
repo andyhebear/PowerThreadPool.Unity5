@@ -40,6 +40,7 @@
   <ItemGroup>
     <Compile Include="Collections\ConcurrentQueue_Net20.cs" />
     <Compile Include="Collections\ConcurrentSet_Net20.cs" />
+    <Compile Include="Collections\DelayedWorkQueue_Net20.cs" />
     <Compile Include="Collections\LockFreeQueue_Net20.cs" />
     <Compile Include="Collections\PriorityQueue_Net20.cs" />
     <Compile Include="Constants\CanCancel_Net20.cs" />

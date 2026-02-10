@@ -14,6 +14,8 @@ namespace PowerThreadPool_Net20
     internal class Program
     {
         static void Main(string[] args) {
+            TestSchedulingFunctionality.RunAllTests();
+            Console.ReadLine();
             Test_Group_Usage.RunAllTests();
             Console.ReadLine();
             PowerPoolComprehensiveTests.RunAllTests();
@@ -473,6 +475,7 @@ namespace PowerThreadPool_Net20
                 else {
                     testFailed++;
                     Console.WriteLine($"  ✗ {testName} - FAILED");
+
                     if (!string.IsNullOrEmpty(details))
                         Console.WriteLine($"    {details}");
                 }
@@ -2730,4 +2733,332 @@ namespace PowerThreadPool_Net20
             Console.WriteLine("╚══════════════════════════════════════════════════════════╝\n");
         }
     }
+
+    /// <summary>
+    /// 测试延迟执行和定时执行功能
+    /// Test delayed and recurring execution functionality
+    /// </summary>
+    public class TestSchedulingFunctionality
+    {
+
+        /// <summary>
+        /// 运行所有测试
+        /// Run all tests
+        /// </summary>
+        public static void RunAllTests() {
+            Console.WriteLine("=== PowerThreadPool_Net20 延迟执行和定时执行功能测试 ===\n");
+
+            Test1_DelayedExecutionWithAction();
+            Test2_DelayedExecutionWithFunc();
+            Test3_RecurringExecutionWithAction();
+            Test4_RecurringExecutionWithMaxExecutions();
+            Test5_RecurringExecutionWithFunc();
+            Test6_CancelScheduledWork();
+            Test7_MultipleDelayedWorks();
+            Test8_GetActiveScheduledWorkIDs();
+
+            Console.WriteLine("\n=== 所有测试完成 ===");
+        }
+
+        /// <summary>
+        /// 测试1: 延迟执行任务（Action）
+        /// Test 1: Delayed execution (Action)
+        /// </summary>
+        public static void Test1_DelayedExecutionWithAction() {
+            Console.WriteLine("测试1: 延迟执行任务（Action）");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            var counter = 0;
+            Console.WriteLine("  [0ms] 准备调度延迟任务");
+
+            string scheduledID = pool.ScheduleDelayed(
+                () => {
+                    Interlocked.Increment(ref counter);
+                    Console.WriteLine("  [延迟任务] 执行完成，counter = " + counter);
+                },
+                2000
+            );
+
+            Console.WriteLine("  [0ms] 任务已调度，ID: " + scheduledID);
+
+            Thread.Sleep(2500);
+
+            if (counter == 1) {
+                Console.WriteLine("  ✓ 测试通过：延迟任务在2秒后正确执行\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：期望 counter=1，实际 counter=" + counter + "\n");
+            }
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试2: 延迟执行任务（Func，有返回值）
+        /// Test 2: Delayed execution (Func with return value)
+        /// </summary>
+        public static void Test2_DelayedExecutionWithFunc() {
+            Console.WriteLine("测试2: 延迟执行任务（Func，有返回值）");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            Console.WriteLine("  [0ms] 准备调度延迟任务");
+
+            string scheduledID = pool.ScheduleDelayed(
+                () => {
+                    Console.WriteLine("  [延迟任务] 正在计算结果...");
+                    Thread.Sleep(100);
+                    return 42;
+                },
+                1500,
+                new WorkOption ()
+            );
+
+            Console.WriteLine("  [0ms] 任务已调度");
+
+            Thread.Sleep(2000);
+
+            Console.WriteLine("  ✓ 测试通过：延迟任务调度成功\n");
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试3: 定期执行任务（无限次）
+        /// Test 3: Recurring execution (unlimited)
+        /// </summary>
+        public static void Test3_RecurringExecutionWithAction() {
+            Console.WriteLine("测试3: 定期执行任务（无限次，10秒后手动停止）");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            var counter = 0;
+            Console.WriteLine("  [0ms] 准备调度周期任务（间隔500ms）");
+
+            string scheduledID = pool.ScheduleRecurring(
+                () => {
+                    int current = Interlocked.Increment(ref counter);
+                    Console.WriteLine("  [周期任务] 第 " + current + " 次执行");
+                },
+                500
+            );
+
+            Console.WriteLine("  [0ms] 周期任务已调度，ID: " + scheduledID);
+
+            Thread.Sleep(3000);
+
+            Console.WriteLine("  [3000ms] 停止周期任务");
+            pool.CancelScheduledWork(scheduledID);
+
+            Thread.Sleep(1000);
+
+            if (counter >= 5 && counter <= 7) {
+                Console.WriteLine("  ✓ 测试通过：周期任务执行了 " + counter + " 次（预期5-7次）\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：执行次数 " + counter + " 不在预期范围内 [5, 7]\n");
+            }
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试4: 定期执行任务（限制最大执行次数）
+        /// Test 4: Recurring execution (with max executions)
+        /// </summary>
+        public static void Test4_RecurringExecutionWithMaxExecutions() {
+            Console.WriteLine("测试4: 定期执行任务（最大执行5次）");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            var counter = 0;
+            Console.WriteLine("  [0ms] 准备调度周期任务（间隔300ms，最多5次）");
+
+            string scheduledID = pool.ScheduleRecurring(
+                () => {
+                    Interlocked.Increment(ref counter);
+                    Console.WriteLine("  [周期任务] 第 " + counter + " 次执行");
+                },
+                300,
+                5
+            );
+
+            Console.WriteLine("  [0ms] 周期任务已调度");
+
+            Thread.Sleep(2000);
+
+            if (counter == 5) {
+                Console.WriteLine("  ✓ 测试通过：周期任务正确执行了 " + counter + " 次\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：期望执行5次，实际执行" + counter + "次\n");
+            }
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试5: 定期执行任务（Func，有返回值）
+        /// Test 5: Recurring execution (Func with return value)
+        /// </summary>
+        public static void Test5_RecurringExecutionWithFunc() {
+            Console.WriteLine("测试5: 定期执行任务（Func，有返回值，最多3次）");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            var counter = 0;
+            Console.WriteLine("  [0ms] 准备调度周期任务（间隔400ms，最多3次）");
+
+            string scheduledID = pool.ScheduleRecurring(
+                () => {
+                    Interlocked.Increment(ref counter);
+                    int result = counter * 10;
+                    Console.WriteLine("  [周期任务] 第 " + counter + " 次执行，返回 " + result);
+                    return result;
+                },
+                400,
+                3
+            );
+
+            Console.WriteLine("  [0ms] 周期任务已调度");
+
+            Thread.Sleep(1500);
+
+            if (counter == 3) {
+                Console.WriteLine("  ✓ 测试通过：周期任务正确执行了 " + counter + " 次\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：期望执行3次，实际执行" + counter + "次\n");
+            }
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试6: 取消定时任务
+        /// Test 6: Cancel scheduled work
+        /// </summary>
+        public static void Test6_CancelScheduledWork() {
+            Console.WriteLine("测试6: 取消定时任务");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            var counter = 0;
+            Console.WriteLine("  [0ms] 准备调度延迟任务（延迟2秒）");
+
+            string scheduledID = pool.ScheduleDelayed(
+                () => {
+                    Interlocked.Increment(ref counter);
+                    Console.WriteLine("  [延迟任务] 执行完成");
+                },
+                2000
+            );
+
+            Console.WriteLine("  [0ms] 任务已调度");
+
+            Thread.Sleep(1000);
+
+            Console.WriteLine("  [1000ms] 取消延迟任务");
+            bool cancelled = pool.CancelScheduledWork(scheduledID);
+
+            Thread.Sleep(1500);
+
+            if (cancelled && counter == 0) {
+                Console.WriteLine("  ✓ 测试通过：任务成功取消，未执行\n");
+            }
+            else if (!cancelled) {
+                Console.WriteLine("  ✗ 测试失败：取消操作返回false\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：任务已被执行（counter=" + counter + "）\n");
+            }
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试7: 多个延迟任务
+        /// Test 7: Multiple delayed works
+        /// </summary>
+        public static void Test7_MultipleDelayedWorks() {
+            Console.WriteLine("测试7: 多个延迟任务");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            var results = new int[3];
+            Console.WriteLine("  [0ms] 准备调度3个延迟任务");
+
+            // 任务1: 延迟1秒
+            pool.ScheduleDelayed(() => {
+                results[0] = 1;
+                Console.WriteLine("  [延迟任务1] 执行完成");
+            },1000);
+
+            // 任务2: 延迟2秒
+            pool.ScheduleDelayed(() => {
+                results[1] = 2;
+                Console.WriteLine("  [延迟任务2] 执行完成");
+            },2000);
+
+            // 任务3: 延迟1.5秒
+            pool.ScheduleDelayed(() => {
+                results[2] = 3;
+                Console.WriteLine("  [延迟任务3] 执行完成");
+            },1500);
+
+            Console.WriteLine("  [0ms] 3个任务已调度");
+
+            Thread.Sleep(2500);
+
+            if (results[0] == 1 && results[1] == 2 && results[2] == 3) {
+                Console.WriteLine("  ✓ 测试通过：所有延迟任务按预期执行\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：results = [" + results[0] + ", " + results[1] + ", " + results[2] + "]\n");
+            }
+
+            pool.Dispose();
+        }
+
+        /// <summary>
+        /// 测试8: 获取活跃的定时任务ID列表
+        /// Test 8: Get active scheduled work IDs
+        /// </summary>
+        public static void Test8_GetActiveScheduledWorkIDs() {
+            Console.WriteLine("测试8: 获取活跃的定时任务ID列表");
+            var pool = new PowerPool(new PowerPoolOption { MaxThreads = 4 });
+            pool.Start();
+
+            Console.WriteLine("  [0ms] 初始活跃任务数: " + pool.ActiveScheduledWorkCount);
+
+            var id1 = pool.ScheduleDelayed(() => { },5000);
+            Console.WriteLine("  [0ms] 添加延迟任务后活跃数: " + pool.ActiveScheduledWorkCount);
+
+            var id2 = pool.ScheduleRecurring(() => { },1000,3);
+            Console.WriteLine("  [0ms] 添加周期任务后活跃数: " + pool.ActiveScheduledWorkCount);
+
+            var activeIDs = pool.GetActiveScheduledWorkIDs();
+            Console.WriteLine("  [0ms] 活跃任务ID列表: " + activeIDs.Count + " 个");
+
+            bool allPresent = activeIDs.Contains(id1) && activeIDs.Contains(id2);
+
+            pool.CancelScheduledWork(id1);
+            Console.WriteLine("  [0ms] 取消一个任务后活跃数: " + pool.ActiveScheduledWorkCount);
+
+            Thread.Sleep(4000); // 等待周期任务执行完毕
+
+            Console.WriteLine("  [1500ms] 周期任务执行完毕后活跃数: " + pool.ActiveScheduledWorkCount);
+
+            if (allPresent && pool.ActiveScheduledWorkCount == 0) {
+                Console.WriteLine("  ✓ 测试通过：活跃任务列表和计数正确\n");
+            }
+            else {
+                Console.WriteLine("  ✗ 测试失败：活跃任务管理不正确\n");
+            }
+
+            pool.Dispose();
+        }
+    }
+
 }

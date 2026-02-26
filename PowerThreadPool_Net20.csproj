@@ -57,6 +57,7 @@
     <Compile Include="Constants\WorkerStates_Net20.cs" />
     <Compile Include="Constants\WorkHeldStates_Net20.cs" />
     <Compile Include="Constants\WorkStealability_Net20.cs" />
+    <Compile Include="Core\PowerPool_Net20.WorkItemArguments.cs" />
     <Compile Include="Core\PowerPool_Net20.cs" />
     <Compile Include="Core\PowerPool_Net20.Group.cs" />
     <Compile Include="Core\PowerPool_Net20.Scheduling.cs" />

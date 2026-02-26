@@ -1179,6 +1179,22 @@ namespace PowerThreadPool_Net20
         /// Cleanup expired result cache
         /// </summary>
         private void CleanupExpiredResults() {
+            CleanupExpiredResults(false);
+        }
+
+        /// <summary>
+        /// 手动清理过期的结果缓存（公共方法供测试使用）
+        /// Manually cleanup expired result cache (public method for testing)
+        /// </summary>
+        public void ForceCleanupExpiredResults() {
+            CleanupExpiredResults(true);
+        }
+
+        /// <summary>
+        /// 清理过期的结果缓存
+        /// Cleanup expired result cache
+        /// </summary>
+        private void CleanupExpiredResults(bool force) {
             try {
                 if (!_options.EnableResultCacheExpiration || _options.ResultCacheExpiration <= TimeSpan.Zero)
                     return;
@@ -1227,6 +1243,22 @@ namespace PowerThreadPool_Net20
         /// Clean up idle threads
         /// </summary>
         private void CleanupIdleThreads() {
+            CleanupIdleThreads(false);
+        }
+
+        /// <summary>
+        /// 清理空闲线程（公共方法供测试使用）
+        /// Clean up idle threads (public method for testing)
+        /// </summary>
+        public void ForceCleanupIdleThreads() {
+            CleanupIdleThreads(true);
+        }
+
+        /// <summary>
+        /// 清理空闲线程
+        /// Clean up idle threads
+        /// </summary>
+        private void CleanupIdleThreads(bool force) {
             lock (_lockObject) {
                 // 确保不低于最小线程数
                 if (_workerThreads.Count <= _options.MinThreads)
@@ -1746,6 +1778,31 @@ namespace PowerThreadPool_Net20
             }
             catch (ObjectDisposedException) {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 重新排队工作项（用于暂停时的工作项）
+        /// Requeue work item (used for work items during pause)
+        /// </summary>
+        internal void RequeueWorkItem(WorkItem workItem) {
+            int queuePriority = ConvertPriority(workItem.Option.Priority);
+
+            lock (_lockObject) {
+                if (_options.StartSuspended) {
+                    _suspendedWorkQueue.Enqueue(workItem, queuePriority);
+                    _logger.Debug($"WorkItem {workItem.ID} requeued to suspended queue with priority {workItem.Option.Priority} (index: {queuePriority})");
+                }
+                else {
+                    _workQueue.Enqueue(workItem, queuePriority);
+                    _logger.Debug($"WorkItem {workItem.ID} requeued with priority {workItem.Option.Priority} (index: {queuePriority})");
+
+                    // 重置WaitAll信号，因为有新工作入队
+                    _waitAllSignal.Reset();
+
+                    // 通知空闲线程
+                    Monitor.PulseAll(_lockObject);
+                }
             }
         }
 

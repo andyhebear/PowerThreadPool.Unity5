@@ -14,11 +14,12 @@ namespace PowerThreadPool_Net20
     internal class Program
     {
         static void Main(string[] args) {
+     
+            PowerPoolComprehensiveTests.RunAllTests();
+            Console.ReadLine();
             TestSchedulingFunctionality.RunAllTests();
             Console.ReadLine();
             Test_Group_Usage.RunAllTests();
-            Console.ReadLine();
-            PowerPoolComprehensiveTests.RunAllTests();
             Console.ReadLine();
             Console.WriteLine("PowerThreadPool_Net20 Example");
             Console.WriteLine("================================");
@@ -635,7 +636,20 @@ namespace PowerThreadPool_Net20
 
                 bool test2 = result2.IsSuccess && (string)result2.Result == "Hello PowerPool";
                 PrintTestResult("获取字符串返回值",test2);
+                // 计算三角形面积
+                WorkID calculateArea = pool.QueueWorkItem<double,double,double,double>(
+                    (side1,side2,side3) => {
+        // 海伦公式
+        double s = (side1 + side2 + side3) / 2;
+                        double area = Math.Sqrt(s * (s - side1) * (s - side2) * (s - side3));
+                        Console.WriteLine($"Triangle area: {area:F2}");
+                        return area;
+                    },
+                    3,4,5
+                );
 
+                var areaResult = pool.GetResultAndWait(calculateArea);
+                Console.WriteLine($"三角形面积: {(double)areaResult.Result:F2}");  // Output: 6.00
                 // 测试复杂对象返回值
                 WorkID id3 = pool.QueueWorkItem(() => new { A = 1,B = 2 });
                 ExecuteResult result3 = pool.GetResultAndWait(id3);
@@ -813,7 +827,8 @@ namespace PowerThreadPool_Net20
             using (PowerPool pool = CreateTestPool()) {
                 WorkID[] ids = new WorkID[5];
                 for (int i = 0; i < 5; i++) {
-                    ids[i] = pool.QueueWorkItem(() => i * 10);
+                    int index = i;
+                    ids[i] = pool.QueueWorkItem(() => index * 10);
                 }
 
                 pool.WaitAll();
@@ -1145,7 +1160,7 @@ namespace PowerThreadPool_Net20
 
                 WorkID id = pool.QueueWorkItem(() => {
                     lock (lockObj) attemptCount++;
-                    if (attemptCount < 3)
+                    if (attemptCount < 4)
                         throw new InvalidOperationException("Retry test");
                     return "Success";
                 },new WorkOption(
@@ -1160,8 +1175,8 @@ namespace PowerThreadPool_Net20
                 bool test1 = result.IsSuccess;
                 PrintTestResult("重试后成功",test1);
 
-                bool test2 = attemptCount == 3;
-                PrintTestResult($"重试次数正确({attemptCount})",test2);
+                bool test2 = attemptCount == 4 && result.RetryCount == 3;
+                PrintTestResult($"重试次数正确({attemptCount}次执行, {result.RetryCount}次重试)",test2);
             }
         }
 
@@ -1182,7 +1197,7 @@ namespace PowerThreadPool_Net20
                 },new WorkOption(
                      5,TimeSpan.FromMilliseconds(50),
                     (ex) => {
-                        // 只在前3次失败时重试
+                        // 只在前2次失败时重试（即总共执行3次）
                         return attemptCount < 3;
                     }
                 ));
@@ -1194,8 +1209,8 @@ namespace PowerThreadPool_Net20
                 bool test1 = result.IsFailed;
                 PrintTestResult("不满足重试条件后失败",test1);
 
-                bool test2 = attemptCount == 3;
-                PrintTestResult($"重试次数正确({attemptCount})",test2);
+                bool test2 = attemptCount == 3 && result.RetryCount == 2;
+                PrintTestResult($"重试次数正确({attemptCount}次执行, {result.RetryCount}次重试)",test2);
             }
         }
 
@@ -1623,7 +1638,7 @@ namespace PowerThreadPool_Net20
                 pool.Start();
 
                 // 队列工作使线程数增加
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 100; i++) {
                     pool.QueueWorkItem(() => Thread.Sleep(100));
                 }
 
@@ -1633,7 +1648,13 @@ namespace PowerThreadPool_Net20
                 PrintTestResult($"工作执行时线程数: {highThreadCount}",true);
 
                 // 等待超过空闲超时时间
-                Thread.Sleep(3000);
+                Thread.Sleep(2500);
+
+                // 手动触发空闲线程清理（管理线程每30秒才清理一次，测试需要手动触发）
+                pool.ForceCleanupIdleThreads();
+
+                // 等待线程真正停止
+                Thread.Sleep(500);
 
                 int lowThreadCount = pool.ActiveWorkerThreads;
                 bool test1 = lowThreadCount < highThreadCount && lowThreadCount >= 2;
@@ -1666,6 +1687,9 @@ namespace PowerThreadPool_Net20
                 PrintTestResult("执行后结果被缓存",test1);
 
                 Thread.Sleep(150);
+
+                // 手动触发过期结果清理（管理线程每60秒才清理一次，测试需要手动触发）
+                pool.ForceCleanupExpiredResults();
 
                 bool test2 = pool.CachedResultCount == 0;
                 PrintTestResult("过期后结果自动清理",test2);
@@ -1906,7 +1930,7 @@ namespace PowerThreadPool_Net20
                 List<WorkID> workIds = new List<WorkID>();
 
                 // 并发队列大量工作项
-                for (int i = 0; i < 100; i++) {
+                for (int i = 0; i < 1000; i++) {
                     int val = i;
                     WorkID id = pool.QueueWorkItem(() => {
                         int localSum = 0;
@@ -1934,7 +1958,7 @@ namespace PowerThreadPool_Net20
                 // 等待所有工作完成
                 pool.WaitAll();
 
-                bool test1 = workIds.Count == 100;
+                bool test1 = workIds.Count == 1000;
                 PrintTestResult("队列工作项数量正确",test1);
 
                 bool test2 = pool.FailedWorkCount >= 1;

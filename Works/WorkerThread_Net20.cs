@@ -193,8 +193,12 @@ namespace PowerThreadPool_Net20.Works
             DateTime startTime = DateTime.Now;
 
             // 检查暂停信号 - 通过公共接口而不是直接访问私有字段
-            if (!_pool.WaitForPauseSignal())
+            // 如果暂停，等待暂停信号被设置（恢复）
+            if (!_pool.WaitForPauseSignal()) {
+                // 暂停状态下，将工作项重新放回队列
+                _pool.RequeueWorkItem(workItem);
                 return;
+            }
 
             // 检查取消令牌 - 由WorkerThread执行线程负责检查
             if (workItem.Option.CancellationToken != null && workItem.Option.CancellationToken.IsCancellationRequested)

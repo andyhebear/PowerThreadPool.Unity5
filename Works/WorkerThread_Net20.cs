@@ -16,11 +16,11 @@ namespace PowerThreadPool_Net20.Works
         private readonly PowerPool _pool;
         private readonly int _threadId;
         private readonly Thread _thread;
-        private readonly AtomicFlag _shouldStop = new AtomicFlag();
-        private readonly AtomicFlag _isIdle = new AtomicFlag();
-        private readonly InterlockedEnumFlag<WorkerStates> _workerState = WorkerStates.Idle;
+        //初始状态为WorkerStates.Running，等启动线程成功立马设置为WorkerStates.Idle
+        private readonly InterlockedEnumFlag<WorkerStates> _workerState = WorkerStates.Running;
         private WorkID _currentWorkID = WorkID.Empty;
         private DateTime _idleStartTime = DateTime.Now;
+        private volatile int _executingWorkCount = 0; // 当前线程正在执行的工作项数量（0或1）
 
         /// <summary>
         /// 线程ID
@@ -32,7 +32,7 @@ namespace PowerThreadPool_Net20.Works
         /// 是否空闲
         /// Whether idle
         /// </summary>
-        public bool IsIdle => _isIdle.Value;
+        public bool IsIdle => _workerState.Value == WorkerStates.Idle;
 
         /// <summary>
         /// 工作线程状态
@@ -58,6 +58,13 @@ namespace PowerThreadPool_Net20.Works
         public DateTime IdleStartTime => _idleStartTime;
 
         /// <summary>
+        /// 当前正在执行的工作项数量（0或1）
+        /// Current executing work item count (0 or 1)
+        /// </summary>
+        public int ExecutingWorkCount => 
+            (_workerState.Value == WorkerStates.ToBeDisposed || !_thread.IsAlive) ? 0 : _executingWorkCount;
+
+        /// <summary>
         /// 构造函数
         /// Constructor
         /// </summary>
@@ -72,9 +79,8 @@ namespace PowerThreadPool_Net20.Works
                 Priority = pool.Options.ThreadPriority,
 
             };
-            _shouldStop.SetValue(false);
-            _isIdle.SetValue(true);
-            _currentWorkID = WorkID.Empty;
+            //_workerState.InterlockedValue = WorkerStates.Idle;
+            //_currentWorkID = WorkID.Empty;
         }
 
         /// <summary>
@@ -85,7 +91,34 @@ namespace PowerThreadPool_Net20.Works
         {
             if (!_thread.IsAlive)
             {
-                _thread.Start();
+                try
+                {
+                    _thread.Start();
+                }
+                catch (ThreadStateException)
+                {
+                    // 线程已经启动过，忽略
+                }
+                catch (OutOfMemoryException)
+                {
+                    // 内存不足，无法启动线程，标记为停止状态
+                    _workerState.InterlockedValue = WorkerStates.ToBeDisposed;
+#if UNITY
+                    UnityEngine.Debug.LogError($"WorkerThread {ThreadId} failed to start: Out of memory");
+#else
+                    Console.WriteLine($"WorkerThread {ThreadId} failed to start: Out of memory");
+#endif
+                }
+                catch (Exception ex)
+                {
+                    // 其他异常，标记为停止状态
+                    _workerState.InterlockedValue = WorkerStates.ToBeDisposed;
+#if UNITY
+                    UnityEngine.Debug.LogError($"WorkerThread {ThreadId} failed to start: {ex.Message}");
+#else
+                    Console.WriteLine($"WorkerThread {ThreadId} failed to start: {ex.Message}");
+#endif
+                }
             }
         }
 
@@ -95,7 +128,6 @@ namespace PowerThreadPool_Net20.Works
         /// </summary>
         public void Stop()
         {
-            _shouldStop.SetTrue();
             _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
         }
 
@@ -105,7 +137,6 @@ namespace PowerThreadPool_Net20.Works
         /// </summary>
         public void MarkForStop()
         {
-            _shouldStop.SetTrue();
             _workerState.InterlockedValue=(WorkerStates.ToBeDisposed);
         }
 
@@ -138,38 +169,45 @@ namespace PowerThreadPool_Net20.Works
         /// </summary>
         private void ThreadProc()
         {
+            WorkItem currentWorkItem = null;
+            _workerState.InterlockedValue = WorkerStates.Idle;
+            Exception ex = null;
             try
-            {
-                while (!_shouldStop.Value)
+            {               
+                while (_workerState.Value != WorkerStates.ToBeDisposed)
                 {
-                    _isIdle.SetValue(true);
-                    _workerState.InterlockedValue=(WorkerStates.Idle);
-                    _idleStartTime = DateTime.Now; // 更新空闲开始时间
-                    _currentWorkID = WorkID.Empty;
-
                     // 从线程池获取工作项
                     WorkItem workItem = _pool.GetWorkItem();
-
+                    currentWorkItem = workItem; // 保存当前工作项引用
                     if (workItem == null)
+                    {
+                        // GetWorkItem返回null表示线程池已停止或释放                        
                         break;
+                    }
 
-                    _isIdle.SetValue(false);
-                    _workerState.InterlockedValue=(WorkerStates.Running);
+                    _workerState.InterlockedValue = WorkerStates.Running;
                     _currentWorkID = workItem.ID;
+                    _executingWorkCount = 1; // 增加执行计数
 
-                    // 执行工作项
+                    // 执行工作项（注意：状态更新在ExecuteWorkItem的回调内部执行）
                     ExecuteWorkItem(workItem);
-
+                    // 工作真正完成后才标记为空闲
+                    _workerState.InterlockedValue = WorkerStates.Idle;
+                    _idleStartTime = DateTime.Now; // 更新空闲开始时间
                     _currentWorkID = WorkID.Empty;
+                    _executingWorkCount = 0; // 减少执行计数
+                    //
                 }
             }
-            catch (ThreadAbortException)
+            catch (ThreadAbortException ex1)
             {
                 // 线程被中止，正常退出
+                ex = ex1;
             }
-            catch (Exception ex)
+            catch (Exception ex2)
             {
                 // 记录未处理的异常
+                ex = ex2;
 #if UNITY
                 UnityEngine.Debug.LogError($"WorkerThread {ThreadId} unexpected error: {ex.Message}");
 #else
@@ -178,15 +216,21 @@ namespace PowerThreadPool_Net20.Works
             }
             finally
             {
-                _isIdle.SetValue(true);
-                _workerState.InterlockedValue=(WorkerStates.Idle);
+                // 如果线程被中止时正在执行工作项，调用OnWorkCompleted处理完成逻辑
+                // 注意：计数器由WorkerThread内部维护，这里不再依赖OnWorkCompleted来维护计数
+                if (currentWorkItem != null) {
+                    _pool.OnWorkCompleted(currentWorkItem,null,
+                        ex,0);
+                }
+                _workerState.InterlockedValue = WorkerStates.ToBeDisposed;
                 _currentWorkID = WorkID.Empty;
+                _executingWorkCount = 0; // 确保计数器归零
             }
         }
 
         /// <summary>
-        /// 执行工作项（异步回调模式）
-        /// Execute work item (asynchronous callback mode)
+        /// 执行工作项（内部相当于同步执行）
+        /// Execute work item (synchronous callback mode)
         /// </summary>
         private void ExecuteWorkItem(WorkItem workItem)
         {
@@ -197,6 +241,7 @@ namespace PowerThreadPool_Net20.Works
             if (!_pool.WaitForPauseSignal()) {
                 // 暂停状态下，将工作项重新放回队列
                 _pool.RequeueWorkItem(workItem);
+                _executingWorkCount = 0; // 重新入队时，工作项未真正执行，计数器归零
                 return;
             }
 
@@ -208,7 +253,7 @@ namespace PowerThreadPool_Net20.Works
                 return;
             }
 
-            // 异步执行工作项，通过回调获取结果
+            // 同步执行工作项，通过回调获取结果
             workItem.Execute((completedWorkItem, result, exception, retryCount) =>
             {
                 // 更新执行时间统计 - 通过公共接口
@@ -220,6 +265,8 @@ namespace PowerThreadPool_Net20.Works
 
                 // 通知线程池工作完成
                 _pool.OnWorkCompleted(completedWorkItem, result, exception, retryCount);
+                
+               
             });
         }
     }

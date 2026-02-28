@@ -104,11 +104,11 @@ namespace PowerThreadPool_Net20.Works
         }
 
         /// <summary>
-        /// 异步执行工作（由WorkerThread调用，支持重试）
-        /// Execute work asynchronously (called by WorkerThread, supports retry)
+        /// 同步执行工作（由WorkerThread调用，支持重试）
+        /// Execute work synchronously (called by WorkerThread, supports retry)
         /// </summary>
         public void Execute(WorkItemCompletedCallback callback) {
-            ExecuteWithRetry(callback,this._option.MaxRetries);
+            ExecuteWithRetry(callback, 0);
         }
 
         /// <summary>

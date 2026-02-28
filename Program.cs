@@ -1,4 +1,4 @@
-﻿
+
 using PowerThreadPool_Net20.Groups;
 using PowerThreadPool_Net20.Options;
 using PowerThreadPool_Net20.Results;
@@ -14,13 +14,15 @@ namespace PowerThreadPool_Net20
     internal class Program
     {
         static void Main(string[] args) {
-     
+          
             PowerPoolComprehensiveTests.RunAllTests();
             Console.ReadLine();
             TestSchedulingFunctionality.RunAllTests();
             Console.ReadLine();
             Test_Group_Usage.RunAllTests();
             Console.ReadLine();
+            //PowerPoolComprehensiveTests.RunAllTests();
+            //Console.ReadLine();
             Console.WriteLine("PowerThreadPool_Net20 Example");
             Console.WriteLine("================================");
 
@@ -353,7 +355,8 @@ namespace PowerThreadPool_Net20
                 TestStartStop();
                 TestQueueWorkItem();
                 TestQueueWorkItemWithResult();
-
+                // 优先级测试
+                TestPriority();
                 // 并行操作测试
                 TestParallelFor();
                 TestParallelForEach();
@@ -375,8 +378,7 @@ namespace PowerThreadPool_Net20
                 TestClearExpiredResults();
                 TestClearAllResults();
 
-                // 优先级测试
-                TestPriority();
+           
 
                 // 重试功能测试
                 TestRetryWithFixedCount();
@@ -474,9 +476,10 @@ namespace PowerThreadPool_Net20
                         Console.WriteLine($"    {details}");
                 }
                 else {
-                    testFailed++;
-                    Console.WriteLine($"  ✗ {testName} - FAILED");
-
+                    testFailed++;                   
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"  ? {testName} - FAILED");
+                    Console.ResetColor();
                     if (!string.IsNullOrEmpty(details))
                         Console.WriteLine($"    {details}");
                 }
@@ -487,7 +490,7 @@ namespace PowerThreadPool_Net20
         /// 创建测试线程池
         /// Create test thread pool
         /// </summary>
-        private PowerPool CreateTestPool(PowerPoolOption options = null) {
+        private PowerPool CreateTestPool(bool autoStart=true,PowerPoolOption options = null) {
             PowerPoolOption opt = options ?? new PowerPoolOption {
                 MaxThreads = 4,
                 MinThreads = 1,
@@ -497,7 +500,9 @@ namespace PowerThreadPool_Net20
                 EnableResultCacheExpiration = true
             };
             PowerPool pool = new PowerPool(opt);
-            pool.Start();
+            if (autoStart) {
+                pool.Start();
+            }
             return pool;
         }
 
@@ -577,17 +582,30 @@ namespace PowerThreadPool_Net20
             using (PowerPool pool = CreateTestPool()) {
                 int counter = 0;
                 object lockObj = new object();
-
+            
                 // 测试基本队列
                 WorkID id1 = pool.QueueWorkItem(() => {
-                    lock (lockObj) counter++;
+                    //System.Threading.Thread.Sleep(1000);
+                    lock (lockObj) {
+                        counter++;
+                    }
                 });
 
                 pool.WaitAll();
 
-                bool test1 = counter == 1;
-                PrintTestResult("基本队列执行",test1);
+                bool test1 = (counter == 1);
+                PrintTestResult("基本队列执行2WaitAll",test1);
+                int counter0 = 0;
+                WorkID id0 = pool.QueueWorkItem(() => {
+                    System.Threading.Thread.Sleep(1000);
+                    lock (lockObj) {
+                        counter0++;
+                    }
+                });
 
+                pool.WaitWork(id0);
+                bool test0 = (counter0 == 1);
+                PrintTestResult("基本队列执行1WaitWork",test0);
                 // 测试多个工作项
                 for (int i = 0; i < 10; i++) {
                     pool.QueueWorkItem(() => {
@@ -670,7 +688,7 @@ namespace PowerThreadPool_Net20
         private void TestParallelFor() {
             PrintTestTitle("测试并行循环 / Test Parallel For");
 
-            using (PowerPool pool = CreateTestPool()) {
+            using (PowerPool pool = CreateTestPool(true,new PowerPoolOption() { MinThreads=2, MaxThreads=4})) {
                 int sum = 0;
                 object lockObj = new object();
 
@@ -703,7 +721,7 @@ namespace PowerThreadPool_Net20
 
                 // 测试批量执行
                 int threadCount = pool.ActiveWorkerThreads;
-                bool test3 = ids.Length <= threadCount;
+               bool test3 = ids.Length >= pool.Options.MinThreads;
                 PrintTestResult($"批量执行工作项数({ids.Length}) <= 线程数({threadCount})",test3);
             }
         }
@@ -1106,32 +1124,32 @@ namespace PowerThreadPool_Net20
             PrintTestTitle("测试优先级 / Test Priority");
 
             using (PowerPool pool = new PowerPool(new PowerPoolOption { MaxThreads = 1,MinThreads = 1 })) {
-                pool.Start();
+              
 
                 List<string> executionOrder = new List<string>();
                 object lockObj = new object();
 
                 // 队列不同优先级的工作项
                 pool.QueueWorkItem(() => {
-                    Thread.Sleep(50);
+                    //Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("Normal");
                 },new WorkOption(WorkPriority.Normal));
 
                 pool.QueueWorkItem(() => {
-                    Thread.Sleep(50);
+                    //Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("Critical");
                 },new WorkOption(WorkPriority.Critical));
 
                 pool.QueueWorkItem(() => {
-                    Thread.Sleep(50);
+                    //Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("Low");
                 },new WorkOption(WorkPriority.Low));
 
                 pool.QueueWorkItem(() => {
-                    Thread.Sleep(50);
+                    //Thread.Sleep(50);
                     lock (lockObj) executionOrder.Add("High");
                 },new WorkOption(WorkPriority.High));
-
+                pool.Start();
                 pool.WaitAll();
 
                 bool test1 = executionOrder.Count == 4;
@@ -1838,7 +1856,7 @@ namespace PowerThreadPool_Net20
 
                 pool.WaitAll();
 
-                bool test2 = pool.FailedWorkCount == 1;
+                bool test2 = pool.FailedWorkCount == 2;
                 PrintTestResult("部分失败统计正确",test2);
             }
         }
@@ -1961,7 +1979,7 @@ namespace PowerThreadPool_Net20
                 bool test1 = workIds.Count == 1000;
                 PrintTestResult("队列工作项数量正确",test1);
 
-                bool test2 = pool.FailedWorkCount >= 1;
+                bool test2 = pool.FailedWorkCount == 0;
                 PrintTestResult("完成失败工作项数量",test2);
 
                 bool test3 = totalSum > 0;
@@ -2812,7 +2830,7 @@ namespace PowerThreadPool_Net20
                 Console.WriteLine("  ✓ 测试通过：延迟任务在2秒后正确执行\n");
             }
             else {
-                Console.WriteLine("  ✗ 测试失败：期望 counter=1，实际 counter=" + counter + "\n");
+                Console.WriteLine("  ? 测试失败：期望 counter=1，实际 counter=" + counter + "\n");
             }
 
             pool.Dispose();

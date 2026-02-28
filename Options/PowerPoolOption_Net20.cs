@@ -30,7 +30,29 @@ namespace PowerThreadPool_Net20.Options
             {
                 if (value <= 0)
                     throw new ArgumentException("MaxThreads must be greater than 0");
-                _maxThreads = value;
+                
+                // 根据环境限制最大线程数
+                // 1. 计算基于处理器数量的合理上限（不超过32倍）
+                int processorBasedLimit = Environment.ProcessorCount * 32/2;
+                
+                // 2. 设置绝对上限（不超过512）
+                int absoluteLimit = 512/2;
+                
+                // 3. 取两者中的较小值作为环境限制
+                int environmentLimit = Math.Min(processorBasedLimit, absoluteLimit);
+                
+                // 4. 确保至少有最小线程数
+                environmentLimit = Math.Max(environmentLimit, _minThreads);
+                
+                // 5. 应用环境限制
+                if (value > environmentLimit)
+                {
+                    _maxThreads = environmentLimit;
+                }
+                else
+                {
+                    _maxThreads = value;
+                }
             }
         }
         

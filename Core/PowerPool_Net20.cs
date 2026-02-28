@@ -42,7 +42,6 @@ namespace PowerThreadPool_Net20
         private LockFreePriorityQueue<WorkItem> _workQueue = new LockFreePriorityQueue<WorkItem>(4);
         private LockFreePriorityQueue<WorkItem> _suspendedWorkQueue = new LockFreePriorityQueue<WorkItem>(4);
       
-
         // 结果缓存（用于ExecuteResult落地）
         private Dictionary<WorkID,ExecuteResult> _resultCache = new Dictionary<WorkID,ExecuteResult>();
         private readonly object _resultCacheLock = new object();
@@ -291,7 +290,7 @@ namespace PowerThreadPool_Net20
 
                 // 启动挂起的工作
                 StartSuspendedWork();
-
+                
                 // 检查初始空闲状态
                 CheckPoolIdle();
 
@@ -324,6 +323,12 @@ namespace PowerThreadPool_Net20
         /// </summary>
         public void Pause() {
             CheckDisposed();
+            
+            if (!IsRunning) {
+                _logger.Warning("Pause() called but thread pool is not running. Operation has no effect.");
+                return;
+            }
+            
             _pauseSignal.Reset();
         }
 
@@ -333,6 +338,12 @@ namespace PowerThreadPool_Net20
         /// </summary>
         public void Resume() {
             CheckDisposed();
+            
+            if (!IsRunning) {
+                _logger.Warning("Resume() called but thread pool is not running. Operation has no effect.");
+                return;
+            }
+            
             _pauseSignal.Set();
         }
 
@@ -510,7 +521,7 @@ namespace PowerThreadPool_Net20
 
             var workIds = new List<WorkID>();
             //开启最大线程数
-            Update2MaxWorkersCount();
+            //Update2MaxWorkersCount();
             lock (_lockObject) {
                 for (int i = start; i < end; i += batchSize * step) {
                     int batchStart = i;
@@ -756,7 +767,7 @@ namespace PowerThreadPool_Net20
 
             var workIds = new List<WorkID>();
             //开启最大线程数
-            Update2MaxWorkersCount();
+            //Update2MaxWorkersCount();
             lock (_lockObject) {
                 for (int i = 0; i < items.Length; i += batchSize) {
                     int batchStart = i;
@@ -823,6 +834,10 @@ namespace PowerThreadPool_Net20
         public void WaitAll() {
             CheckDisposed();
 
+            if (!IsRunning) {
+                throw new InvalidOperationException("Cannot wait for work completion when thread pool is not running. Call Start() first.");
+            }
+
             // 首先检查当前是否已经空闲
             CheckPoolIdle();
 
@@ -845,6 +860,10 @@ namespace PowerThreadPool_Net20
         /// </summary>
         public void WaitWork(WorkID workID,int timeoutMs = 30000) {
             CheckDisposed();
+            
+            if (!IsRunning) {
+                throw new InvalidOperationException("Cannot wait for work completion when thread pool is not running. Call Start() first.");
+            }
 
             DateTime startTime = DateTime.Now;
             while (DateTime.Now - startTime < TimeSpan.FromMilliseconds(timeoutMs)) {
@@ -893,6 +912,11 @@ namespace PowerThreadPool_Net20
         
         public void WaitWorks(WorkID[] workIds,int timeoutMs = 30000) {
             CheckDisposed();
+            
+            if (!IsRunning) {
+                throw new InvalidOperationException("Cannot wait for work completion when thread pool is not running. Call Start() first.");
+            }
+            
             if (workIds == null)
                 throw new ArgumentNullException(nameof(workIds));
 
@@ -952,6 +976,10 @@ namespace PowerThreadPool_Net20
         /// <exception cref="TimeoutException">工作在超时时间内未完成</exception>
         public void WaitWorks(ICollection<WorkID> workIds,int timeoutMs = 30000) {
             CheckDisposed();
+
+            if (!IsRunning) {
+                throw new InvalidOperationException("Cannot wait for work completion when thread pool is not running. Call Start() first.");
+            }
 
             if (workIds == null)
                 throw new ArgumentNullException(nameof(workIds));
@@ -1017,12 +1045,26 @@ namespace PowerThreadPool_Net20
         }
 
         /// <summary>
+        /// 计算当前正在执行的工作项数量（通过遍历所有工作线程）
+        /// Calculate current executing work item count (by traversing all worker threads)
+        /// </summary>
+        /// <returns>正在执行的工作项数量 / Number of executing work items</returns>
+        private int CalculateExecutingWorkCount() {
+            lock (_lockObject) {
+                int count = 0;
+                foreach (WorkerThread worker in _workerThreads) {
+                    count += worker.ExecutingWorkCount;
+                }
+                return count;
+            }
+        }
+
+        /// <summary>
         /// 检查线程池是否空闲
         /// Check if the thread pool is idle
         /// </summary>
         private void CheckPoolIdle() {
             bool isIdle = false;
-            bool shouldSetSignal = false;
 
             lock (_lockObject) {
                 // 在锁内再次检查状态，避免竞态条件
@@ -1032,27 +1074,22 @@ namespace PowerThreadPool_Net20
                 // 检查工作队列是否为空
                 bool queueEmpty = _workQueue.Count == 0;
 
-                // 检查所有活跃工作线程是否都空闲
-                bool allThreadsIdle = true;
-                foreach (WorkerThread worker in _workerThreads) {
-                    if (!worker.IsIdle) {
-                        allThreadsIdle = false;
-                        break;
-                    }
-                }
+                // 检查是否有工作项正在执行（通过遍历所有工作线程计算）
+                bool noExecutingWork = CalculateExecutingWorkCount() == 0;
 
-                isIdle = queueEmpty && allThreadsIdle;
-                shouldSetSignal = isIdle;
+                isIdle = queueEmpty && noExecutingWork;
             }
 
             // 在锁外设置信号，避免死锁
+            // 只有当线程池空闲时才设置信号，避免与QueueWorkItem的Reset操作冲突
             try {
-                if (shouldSetSignal) {
+                if (isIdle) {
                     _waitAllSignal.Set();
                 }
-                else {
-                    _waitAllSignal.Reset();
-                }
+                //else {
+				// 注意：这里不再调用Reset()，避免与QueueWorkItem中的Reset操作产生竞态
+                 //   _waitAllSignal.Reset();
+                //}
             }
             catch (ObjectDisposedException) {
                 // 忽略对象已释放异常，正常情况
@@ -1450,14 +1487,14 @@ namespace PowerThreadPool_Net20
                     // 再次检查，可能在等待期间有新工作项加入
                     if (_workQueue.TryDequeue(out workItem)) {
                         // 添加 null 检查
-                        if (workItem != null) {
+                        //if (workItem != null) {
                             _logger.Debug($"WorkItem {workItem.ID} dequeued after wait");
                             return workItem;
-                        }
-                        else {
-                            _logger.Warning("TryDequeue returned null WorkItem after wait, retrying...");
-                            continue;
-                        }
+                        //}
+                        //else {
+                        //    _logger.Warning("TryDequeue returned null WorkItem after wait, retrying...");
+                         //   continue;
+                        //}
                     }
 
                     // 等待新工作项的通知

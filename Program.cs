@@ -1,4 +1,5 @@
 
+using PowerThreadPool_Net20.Collections;
 using PowerThreadPool_Net20.Groups;
 using PowerThreadPool_Net20.Options;
 using PowerThreadPool_Net20.Results;
@@ -14,7 +15,40 @@ namespace PowerThreadPool_Net20
     internal class Program
     {
         static void Main(string[] args) {
-          
+            WatchExamples.RunAllTests();
+            Console.ReadLine();
+            using (PowerPool pool0 = new PowerPool()) {
+                pool0.Start();
+                for (int i = 0; i < 100; i++) {
+
+                    int counter0 = 0;
+                    object lockObj0 = new object();
+
+                    // 测试基本队列
+                    WorkID id1 = pool0.QueueWorkItem(() => {
+                        //System.Threading.Thread.Sleep(1000);
+                        lock (lockObj0) {
+                            counter0++;
+                        }
+                    });
+
+                    // 使用 WaitAll() 等待所有工作完成
+                    // 修复后：CheckPoolIdle() 会延迟5ms再检查，避免竞态条件
+                    pool0.WaitAll();
+
+                    bool test1 = (counter0 == 1);
+                    if (test1 == false) {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("基本队列执行2WaitAll-" + test1);
+                        Console.ResetColor();
+                    }
+                    else {
+                        Console.WriteLine("基本队列执行2WaitAll-" + test1);
+                    }
+
+                }
+                Console.ReadLine();
+            }
             PowerPoolComprehensiveTests.RunAllTests();
             Console.ReadLine();
             TestSchedulingFunctionality.RunAllTests();
@@ -378,7 +412,7 @@ namespace PowerThreadPool_Net20
                 TestClearExpiredResults();
                 TestClearAllResults();
 
-           
+
 
                 // 重试功能测试
                 TestRetryWithFixedCount();
@@ -476,7 +510,7 @@ namespace PowerThreadPool_Net20
                         Console.WriteLine($"    {details}");
                 }
                 else {
-                    testFailed++;                   
+                    testFailed++;
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"  ? {testName} - FAILED");
                     Console.ResetColor();
@@ -490,7 +524,7 @@ namespace PowerThreadPool_Net20
         /// 创建测试线程池
         /// Create test thread pool
         /// </summary>
-        private PowerPool CreateTestPool(bool autoStart=true,PowerPoolOption options = null) {
+        private PowerPool CreateTestPool(bool autoStart = true,PowerPoolOption options = null) {
             PowerPoolOption opt = options ?? new PowerPoolOption {
                 MaxThreads = 4,
                 MinThreads = 1,
@@ -582,7 +616,7 @@ namespace PowerThreadPool_Net20
             using (PowerPool pool = CreateTestPool()) {
                 int counter = 0;
                 object lockObj = new object();
-            
+
                 // 测试基本队列
                 WorkID id1 = pool.QueueWorkItem(() => {
                     //System.Threading.Thread.Sleep(1000);
@@ -603,9 +637,9 @@ namespace PowerThreadPool_Net20
                     }
                 });
 
-                pool.WaitWork(id0);
+                pool.WaitAll();
                 bool test0 = (counter0 == 1);
-                PrintTestResult("基本队列执行1WaitWork",test0);
+                PrintTestResult("基本队列执行1WaitAll",test0);
                 // 测试多个工作项
                 for (int i = 0; i < 10; i++) {
                     pool.QueueWorkItem(() => {
@@ -657,8 +691,8 @@ namespace PowerThreadPool_Net20
                 // 计算三角形面积
                 WorkID calculateArea = pool.QueueWorkItem<double,double,double,double>(
                     (side1,side2,side3) => {
-        // 海伦公式
-        double s = (side1 + side2 + side3) / 2;
+                        // 海伦公式
+                        double s = (side1 + side2 + side3) / 2;
                         double area = Math.Sqrt(s * (s - side1) * (s - side2) * (s - side3));
                         Console.WriteLine($"Triangle area: {area:F2}");
                         return area;
@@ -688,7 +722,7 @@ namespace PowerThreadPool_Net20
         private void TestParallelFor() {
             PrintTestTitle("测试并行循环 / Test Parallel For");
 
-            using (PowerPool pool = CreateTestPool(true,new PowerPoolOption() { MinThreads=2, MaxThreads=4})) {
+            using (PowerPool pool = CreateTestPool(true,new PowerPoolOption() { MinThreads = 2,MaxThreads = 4 })) {
                 int sum = 0;
                 object lockObj = new object();
 
@@ -721,7 +755,7 @@ namespace PowerThreadPool_Net20
 
                 // 测试批量执行
                 int threadCount = pool.ActiveWorkerThreads;
-               bool test3 = ids.Length >= pool.Options.MinThreads;
+                bool test3 = ids.Length >= pool.Options.MinThreads;
                 PrintTestResult($"批量执行工作项数({ids.Length}) <= 线程数({threadCount})",test3);
             }
         }
@@ -1124,7 +1158,7 @@ namespace PowerThreadPool_Net20
             PrintTestTitle("测试优先级 / Test Priority");
 
             using (PowerPool pool = new PowerPool(new PowerPoolOption { MaxThreads = 1,MinThreads = 1 })) {
-              
+
 
                 List<string> executionOrder = new List<string>();
                 object lockObj = new object();
@@ -2705,7 +2739,7 @@ namespace PowerThreadPool_Net20
         public static void Test14_LargeScaleParallel() {
             Console.WriteLine("=== 测试14：大数量任务并行 / Test 14: Large Scale Parallel Tasks ===\n");
 
-            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 8,MaxThreads = 16, ThreadQueueLimit=1000 })) {
+            using (PowerPool pool = new PowerPool(new PowerPoolOption { MinThreads = 8,MaxThreads = 16,ThreadQueueLimit = 1000 })) {
                 pool.Start();
                 Group group = pool.GetGroup("LargeScaleGroup");
 
@@ -2854,7 +2888,7 @@ namespace PowerThreadPool_Net20
                     return 42;
                 },
                 1500,
-                new WorkOption ()
+                new WorkOption()
             );
 
             Console.WriteLine("  [0ms] 任务已调度");
@@ -3102,5 +3136,366 @@ namespace PowerThreadPool_Net20
             pool.Dispose();
         }
     }
+
+
+    /// <summary>
+    /// Watch功能示例 / Watch feature examples
+    /// </summary>
+    public class WatchExamples
+    {
+        /// <summary>
+        /// 工作项类 / Work item class
+        /// </summary>
+        public class WorkItemTest
+        {
+            public int ID { get; set; }
+            public string Name { get; set; }
+            public Priority Priority { get; set; }
+        }
+
+        /// <summary>
+        /// 优先级枚举 / Priority enumeration
+        /// </summary>
+        public enum Priority
+        {
+            Low,
+            Medium,
+            High
+        }
+        public static void RunAllTests() {
+            //Example1_BasicWatch();
+            //Example2_BatchAdd();
+            //Example3_HandleFailures();
+            //Example4_DynamicTasks();
+            //Example5_NoAddBackOnFailure();
+            //Example6_CustomObjects();
+            Example7_ForceStop(); 
+            Example8_StopKeepRunning();
+        }
+
+        /// <summary>
+        /// 示例1: 基本的Watch用法
+        /// Example 1: Basic Watch usage
+        /// </summary>
+        public static void Example1_BasicWatch() {
+            Console.WriteLine("=== Example 1: Basic Watch Usage ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+
+            Console.WriteLine($"Before Watch: Queue count = {taskQueue.Count}");
+
+            Group group = pool.Watch<string>(
+                source: taskQueue,
+                body: (task) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"===Processing task: {task}");
+                    Thread.Sleep(500);
+                    Console.WriteLine($"====Completed task: {task}");
+                    Console.ResetColor();
+                },
+                addBackWhenWorkCanceled: true,
+                addBackWhenWorkStopped: true,
+                addBackWhenWorkFailed: true,
+                groupName: "TaskProcessor"
+            );
+
+            Console.WriteLine($"After Watch: Group = {(group == null ? "NULL" : "OK")}");
+
+            taskQueue.Add("Task 1");
+            taskQueue.Add("Task 2");
+            taskQueue.Add("Task 3");
+
+            Console.WriteLine($"Before WaitAll: Queue count = {taskQueue.Count}");
+            pool.WaitAll();
+            Console.WriteLine($"After WaitAll: Queue count = {taskQueue.Count}");
+
+            Thread.Sleep(500); // 给最后的任务一些时间完成
+
+            if (group != null)
+            {
+                pool.StopWatching(taskQueue, group);
+            }
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例2: 批量添加元素
+        /// Example 2: Batch add elements
+        /// </summary>
+        public static void Example2_BatchAdd() {
+            Console.WriteLine("=== Example 2: Batch Add Elements ===");
+
+            PowerPool pool = new PowerPool(new PowerPoolOption() {  MinThreads=1,MaxThreads=1} );
+            pool.Start();
+            ConcurrentObservableCollection_Net20<int> numberQueue = new ConcurrentObservableCollection_Net20<int>();
+
+            Group group = pool.Watch<int>(
+                source: numberQueue,
+                body: (number) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"====Processing number: {number}");
+                    Console.ResetColor();
+                    Thread.Sleep(200);
+                },
+                groupName: "NumberProcessor"
+            );
+
+            string[] numbers = { "10","20","30","40","50" };
+            numberQueue.AddRange(new int[] { 10,20,30,40,50 });
+
+            Thread.Sleep(1500);
+            Console.WriteLine($"After WaitAll: Queue count = {numberQueue.Count}");
+            pool.StopWatching(numberQueue,group);
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例3: 处理失败的情况
+        /// Example 3: Handle failure scenarios
+        /// </summary>
+        public static void Example3_HandleFailures() {
+            Console.WriteLine("=== Example 3: Handle Failure Scenarios ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+
+            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+
+            Group group = pool.Watch<string>(
+                source: taskQueue,
+                body: (task) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"====Starting task: {task}");
+
+                    if (task == "FailTask") {
+                        Console.WriteLine($"====Task {task} failed!");
+                        throw new Exception("Task failed intentionally");
+                    }
+
+                    Thread.Sleep(300);
+                    Console.WriteLine($"====Task {task} completed successfully");
+                    Console.ResetColor();
+                },
+                addBackWhenWorkFailed: true,
+                addBackWhenWorkCanceled: true,
+                addBackWhenWorkStopped: true,
+                groupName: "FailureHandler"
+            );
+
+            taskQueue.Add("NormalTask1");
+            taskQueue.Add("FailTask");
+            taskQueue.Add("NormalTask2");
+
+            Thread.Sleep(2000);
+
+            Console.WriteLine($"====Queue count after processing: {taskQueue.Count}");
+
+            pool.StopWatching(taskQueue,group);
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例4: 动态添加任务
+        /// Example 4: Dynamically add tasks
+        /// </summary>
+        public static void Example4_DynamicTasks() {
+            Console.WriteLine("=== Example 4: Dynamic Tasks ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+
+            Group group = pool.Watch<string>(
+                source: taskQueue,
+                body: (task) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"===[{DateTime.Now:HH:mm:ss.fff}] Processing: {task}");
+                    Thread.Sleep(1000);
+                    Console.WriteLine($"===[{DateTime.Now:HH:mm:ss.fff}] Completed: {task}");
+                    Console.ResetColor();
+                },
+                groupName: "DynamicProcessor"
+            );
+
+            taskQueue.Add("Initial Task 1");
+            taskQueue.Add("Initial Task 2");
+
+            Thread.Sleep(500);
+            taskQueue.Add("Dynamic Task 1");
+
+            Thread.Sleep(500);
+            taskQueue.Add("Dynamic Task 2");
+
+            Thread.Sleep(500);
+            taskQueue.Add("Dynamic Task 3");
+
+            Thread.Sleep(3000);
+
+            pool.StopWatching(taskQueue,group);
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例5: 不回退失败的任务
+        /// Example 5: Don't add back failed tasks
+        /// </summary>
+        public static void Example5_NoAddBackOnFailure() {
+            Console.WriteLine("=== Example 5: No Add Back on Failure ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+
+            Group group = pool.Watch<string>(
+                source: taskQueue,
+                body: (task) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Processing: {task}");
+
+                    if (task.IndexOf("fail",StringComparison.OrdinalIgnoreCase) != -1) {
+                        Console.WriteLine($"Task {task} failed!");
+                        throw new Exception("Task failed");
+                    }
+
+                    Thread.Sleep(200);
+                    Console.WriteLine($"Task {task} succeeded");
+                    Console.ResetColor();
+                },
+                addBackWhenWorkFailed: false,
+                addBackWhenWorkCanceled: false,
+                addBackWhenWorkStopped: false,
+                groupName: "NoRetryProcessor"
+            );
+
+            taskQueue.Add("SuccessTask1");
+            taskQueue.Add("FailTask");
+            taskQueue.Add("SuccessTask2");
+
+            Thread.Sleep(1500);
+
+            Console.WriteLine($"Remaining tasks in queue: {taskQueue.Count}");
+
+            pool.StopWatching(taskQueue,group);
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例6: 使用自定义对象
+        /// Example 6: Use custom objects
+        /// </summary>
+        public static void Example6_CustomObjects() {
+            Console.WriteLine("=== Example 6: Custom Objects ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+            ConcurrentObservableCollection_Net20<WorkItemTest> workQueue = new ConcurrentObservableCollection_Net20<WorkItemTest>();
+
+            Group group = pool.Watch<WorkItemTest>(
+                source: workQueue,
+                body: (item) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Processing WorkItem ID={item.ID}, Priority={item.Priority}");
+                    Thread.Sleep(item.Priority == Priority.High ? 500 : 1000);
+                    Console.WriteLine($"Completed WorkItem ID={item.ID}");
+                    Console.ResetColor();
+                },
+                groupName: "WorkItemProcessor"
+            );
+
+            workQueue.Add(new WorkItemTest { ID = 1,Name = "Task A",Priority = Priority.High });
+            workQueue.Add(new WorkItemTest { ID = 2,Name = "Task B",Priority = Priority.Low });
+            workQueue.Add(new WorkItemTest { ID = 3,Name = "Task C",Priority = Priority.High });
+            workQueue.Add(new WorkItemTest { ID = 4,Name = "Task D",Priority = Priority.Low });
+
+            Thread.Sleep(3000);
+
+            pool.StopWatching(workQueue,group);
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例7: 强制停止监视
+        /// Example 7: Force stop watching
+        /// </summary>
+        public static void Example7_ForceStop() {
+            Console.WriteLine("=== Example 7: Force Stop Watching ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+
+            Group group = pool.Watch<string>(
+                source: taskQueue,
+                body: (task) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Starting long task: {task}");
+                    Thread.Sleep(3000);
+                    Console.WriteLine($"Completed long task: {task}");
+                    Console.ResetColor();
+                },
+                groupName: "LongTaskProcessor"
+            );
+
+            taskQueue.Add("LongTask1");
+            taskQueue.Add("LongTask2");
+
+            Thread.Sleep(1000);
+
+            Console.WriteLine("Force stopping watch...");
+            pool.StopWatching(taskQueue,group);
+
+            pool.Dispose();
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 示例8: 保持运行状态停止监视
+        /// Example 8: Stop watching but keep running
+        /// </summary>
+        public static void Example8_StopKeepRunning() {
+            Console.WriteLine("=== Example 8: Stop Watching Keep Running ===");
+
+            PowerPool pool = new PowerPool();
+            pool.Start();
+            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+
+            Group group = pool.Watch<string>(
+                source: taskQueue,
+                body: (task) => {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Processing: {task}");
+                    Thread.Sleep(500);
+                    Console.WriteLine($"Completed: {task}");
+                    Console.ResetColor();
+                },
+                groupName: "KeepRunningProcessor"
+            );
+
+            taskQueue.Add("Task1");
+            taskQueue.Add("Task2");
+
+            Thread.Sleep(1500);
+
+            Console.WriteLine("Stopping watch but keep running...");
+            pool.StopWatching(taskQueue,group,keepRunning: true);
+
+            taskQueue.Add("Task3");
+            taskQueue.Add("Task4");
+
+            Thread.Sleep(1500);
+
+            pool.Dispose();
+            Console.WriteLine();
+        }
+    }
+
 
 }

@@ -38,10 +38,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Collections\ConcurrentObservableCollection_Net20.cs" />
     <Compile Include="Collections\ConcurrentQueue_Net20.cs" />
     <Compile Include="Collections\ConcurrentSet_Net20.cs" />
     <Compile Include="Collections\DelayedWorkQueue_Net20.cs" />
     <Compile Include="Collections\LockFreeQueue_Net20.cs" />
+    <Compile Include="Collections\NotifyCollectionChangedEventArgs.cs" />
+    <Compile Include="Collections\ObservableCollection.cs" />
     <Compile Include="Collections\PriorityQueue_Net20.cs" />
     <Compile Include="Constants\CanCancel_Net20.cs" />
     <Compile Include="Constants\CanCreateNewWorker_Net20.cs" />
@@ -57,7 +60,8 @@
     <Compile Include="Constants\WorkerStates_Net20.cs" />
     <Compile Include="Constants\WorkHeldStates_Net20.cs" />
     <Compile Include="Constants\WorkStealability_Net20.cs" />
-    <Compile Include="Core\PowerPool_Net20.WorkItemArguments.cs" />
+    <Compile Include="Core\PowerPool_Net20.Watch.cs" />
+    <Compile Include="Core\PowerPool_Net20.WorkItems.cs" />
     <Compile Include="Core\PowerPool_Net20.cs" />
     <Compile Include="Core\PowerPool_Net20.Group.cs" />
     <Compile Include="Core\PowerPool_Net20.Scheduling.cs" />

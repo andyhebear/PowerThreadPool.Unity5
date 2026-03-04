@@ -2,7 +2,6 @@ using System;
 
 namespace PowerThreadPool_Net20.Constants
 {
-    /*
     /// <summary>
     /// 是否可监视枚举 / Can watch enumeration
     /// </summary>
@@ -18,5 +17,4 @@ namespace PowerThreadPool_Net20.Constants
         /// </summary>
         NotAllowed = 1,
     }
-    */
 }

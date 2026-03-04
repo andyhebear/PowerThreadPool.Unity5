@@ -23,7 +23,7 @@ namespace PowerThreadPool_Net20.Works
         private readonly WorkOption _option;
         private readonly DateTime _createTime;
         private readonly PowerPool _pool; // 添加PowerPool引用用于超时线程注册
-        internal Thread ExecuteThread;//执行线程
+        private Thread _asyncExecuteThread;//执行线程
         private DateTime? _queueTime;
         private DateTime? _startTime;
         private volatile bool _callbackInvoked = false;
@@ -214,7 +214,7 @@ namespace PowerThreadPool_Net20.Works
             bool threadAborted = false; // 标记线程是否被主线程中止
 
             // 创建执行线程
-            this.ExecuteThread = new Thread(() => {
+            this._asyncExecuteThread = new Thread(() => {
                 try {
                     // 检查取消状态
                     if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
@@ -261,9 +261,9 @@ namespace PowerThreadPool_Net20.Works
                     }
                 }
             });
-            this.ExecuteThread.Name = $"{this._id}_{this.Name}";
+            this._asyncExecuteThread.Name = $"{this._id}_{this.Name}";
             // 启动执行线程
-            this.ExecuteThread.Start();
+            this._asyncExecuteThread.Start();
 
             // 等待执行线程完成（使用超时机制避免无限等待）
             // 同时处理取消令牌中断
@@ -283,7 +283,7 @@ namespace PowerThreadPool_Net20.Works
                 if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
                     // 取消令牌被触发，标记为取消状态
                     isCancellationTokenCompleted = true;
-                    AbortThreadSafely();
+                    AbortAsyncThreadSafely();
                     // 设置事件以退出等待
                     executionCompletedEvent.Set();
                     break;
@@ -293,7 +293,7 @@ namespace PowerThreadPool_Net20.Works
                 if (timeoutDeadline.HasValue && DateTime.Now >= timeoutDeadline.Value) {
                     // 超时，标记为超时状态
                     isTimeoutCompleted = true;
-                    AbortThreadSafely();
+                    AbortAsyncThreadSafely();
                     // 设置事件以退出等待
                     executionCompletedEvent.Set();
                     break;
@@ -307,7 +307,7 @@ namespace PowerThreadPool_Net20.Works
             executionCompletedEvent.Close();
 
             // 如果超时或被取消，检查线程是否仍在运行
-            if (!executionCompleted && this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
+            if (!executionCompleted && this._asyncExecuteThread != null && this._asyncExecuteThread.IsAlive) {
                 if (isCancellationTokenCompleted) {
                     Console.WriteLine($"WorkItem {_id} execution was cancelled, but thread is still running");
                 }
@@ -353,14 +353,14 @@ namespace PowerThreadPool_Net20.Works
         /// 安全地中止执行线程
         /// Safely abort the execution thread
         /// </summary>
-        private void AbortThreadSafely() {
+        internal void AbortAsyncThreadSafely() {
             try {
-                if (this.ExecuteThread != null && this.ExecuteThread.IsAlive) {
+                if (this._asyncExecuteThread != null && this._asyncExecuteThread.IsAlive) {
                     // 注意：Thread.Abort 在 .NET Core/.NET 5+ 中已过时
                     // 这里为了兼容性保留，建议使用 CancellationToken 替代
                     // Note: Thread.Abort is obsolete in .NET Core/.NET 5+
                     // Kept here for compatibility, recommend using CancellationToken instead
-                    this.ExecuteThread.Abort();
+                    this._asyncExecuteThread.Abort();
                 }
             }
             catch {

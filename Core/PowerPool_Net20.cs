@@ -10,7 +10,7 @@ using PowerThreadPool_Net20.Exceptions;
 using PowerThreadPool_Net20.Helpers;
 using PowerThreadPool_Net20.Logging;
 using PowerThreadPool_Net20.Constants;
-
+using PowerThreadPool_Net20.Groups;
 
 namespace PowerThreadPool_Net20
 {
@@ -41,7 +41,7 @@ namespace PowerThreadPool_Net20
         private List<WorkerThread> _workerThreads = new List<WorkerThread>();
         private LockFreePriorityQueue<WorkItem> _workQueue = new LockFreePriorityQueue<WorkItem>(4);
         private LockFreePriorityQueue<WorkItem> _suspendedWorkQueue = new LockFreePriorityQueue<WorkItem>(4);
-      
+
         // 结果缓存（用于ExecuteResult落地）
         private Dictionary<WorkID,ExecuteResult> _resultCache = new Dictionary<WorkID,ExecuteResult>();
         private readonly object _resultCacheLock = new object();
@@ -59,7 +59,7 @@ namespace PowerThreadPool_Net20
         // 统计信息
         private int _totalWorkItems = 0;
         private int _completedWorkItems = 0;
-        private int _failedWorkItems = 0;   
+        private int _failedWorkItems = 0;
         private long _totalExecuteTime = 0;
         private DateTime _startTime;
 
@@ -279,7 +279,7 @@ namespace PowerThreadPool_Net20
                 // 重置统计信息
                 _totalWorkItems = 0;
                 _completedWorkItems = 0;
-                _failedWorkItems = 0;               
+                _failedWorkItems = 0;
                 _totalExecuteTime = 0;
 
                 // 创建工作线程
@@ -290,7 +290,7 @@ namespace PowerThreadPool_Net20
 
                 // 启动挂起的工作
                 StartSuspendedWork();
-                
+
                 // 检查初始空闲状态
                 CheckPoolIdle();
 
@@ -323,12 +323,12 @@ namespace PowerThreadPool_Net20
         /// </summary>
         public void Pause() {
             CheckDisposed();
-            
+
             if (!IsRunning) {
                 _logger.Warning("Pause() called but thread pool is not running. Operation has no effect.");
                 return;
             }
-            
+
             _pauseSignal.Reset();
         }
 
@@ -338,12 +338,12 @@ namespace PowerThreadPool_Net20
         /// </summary>
         public void Resume() {
             CheckDisposed();
-            
+
             if (!IsRunning) {
                 _logger.Warning("Resume() called but thread pool is not running. Operation has no effect.");
                 return;
             }
-            
+
             _pauseSignal.Set();
         }
 
@@ -860,7 +860,7 @@ namespace PowerThreadPool_Net20
         /// </summary>
         public void WaitWork(WorkID workID,int timeoutMs = 30000) {
             CheckDisposed();
-            
+
             if (!IsRunning) {
                 throw new InvalidOperationException("Cannot wait for work completion when thread pool is not running. Call Start() first.");
             }
@@ -909,14 +909,14 @@ namespace PowerThreadPool_Net20
             }
             throw new TimeoutException($"Work {workID} did not complete within {timeoutMs}ms timeout period.");
         }
-        
+
         public void WaitWorks(WorkID[] workIds,int timeoutMs = 30000) {
             CheckDisposed();
-            
+
             if (!IsRunning) {
                 throw new InvalidOperationException("Cannot wait for work completion when thread pool is not running. Call Start() first.");
             }
-            
+
             if (workIds == null)
                 throw new ArgumentNullException(nameof(workIds));
 
@@ -1084,11 +1084,24 @@ namespace PowerThreadPool_Net20
             // 只有当线程池空闲时才设置信号，避免与QueueWorkItem的Reset操作冲突
             try {
                 if (isIdle) {
+                    // 添加延迟，给WorkerThread足够时间来取到新入队的工作项
+                    // 这可以避免竞态条件：QueueWorkItem() Reset信号 -> WaitAll() CheckPoolIdle() 立即Set信号
+                    // 通过短暂延迟，让WorkerThread有机会从队列中取出工作项
+                    Thread.Sleep(1); // 5ms延迟通常足够WorkerThread调度和获取工作项
+
+                    // 再次检查是否仍然空闲（可能在Sleep期间WorkerThread已经取到工作项）
+                    lock (_lockObject) {
+                        if (_workQueue.Count > 0 || CalculateExecutingWorkCount() > 0) {
+                            // 有工作项入队或正在执行，不再设置信号
+                            return;
+                        }
+                    }
+
                     _waitAllSignal.Set();
                 }
                 //else {
-				// 注意：这里不再调用Reset()，避免与QueueWorkItem中的Reset操作产生竞态
-                 //   _waitAllSignal.Reset();
+                // 注意：这里不再调用Reset()，避免与QueueWorkItem中的Reset操作产生竞态
+                //   _waitAllSignal.Reset();
                 //}
             }
             catch (ObjectDisposedException) {
@@ -1185,7 +1198,7 @@ namespace PowerThreadPool_Net20
 
                     // 使用自适应等待机制
                     // Use adaptive wait mechanism
-                    Monitor.Wait(_lockObject, Math.Min(adaptiveCheckInterval, 50));
+                    Monitor.Wait(_lockObject,Math.Min(adaptiveCheckInterval,50));
                 }
                 catch (ThreadAbortException) {
                     // 线程被中止，正常退出
@@ -1209,7 +1222,7 @@ namespace PowerThreadPool_Net20
                 }
             }
         }
-             
+
 
         /// <summary>
         /// 清理过期的结果缓存
@@ -1317,26 +1330,16 @@ namespace PowerThreadPool_Net20
 
                 // 停止并移除这些线程
                 foreach (WorkerThread worker in threadsToRemove) {
-                    worker.Stop();
+                    worker.MarkForStop();
                     _workerThreads.Remove(worker);
                 }
 
                 // 通知所有等待的线程
                 if (threadsToRemove.Count > 0) {
                     Monitor.PulseAll(_lockObject);
-
-                    // 在锁外等待线程真正停止
+                    // 如果没有停止则强制停止
                     foreach (var worker in threadsToRemove) {
-                        try {
-                            worker.Thread.Join(100); // 最多等待100ms
-                        }
-                        catch (Exception ex) {
-#if UNITY
-                            UnityEngine.Debug.LogWarning($"Error joining worker thread {worker.ThreadId}: {ex.Message}");
-#else
-                            Console.WriteLine($"Error joining worker thread {worker.ThreadId}: {ex.Message}");
-#endif
-                        }
+                        worker.Stop();
                     }
                 }
             }
@@ -1403,6 +1406,9 @@ namespace PowerThreadPool_Net20
                     foreach (var worker in threadsToStop) {
                         worker.Join();
                     }
+                    foreach (var worker in threadsToStop) {
+                        worker.Stop();
+                    }
                 }
             }
         }
@@ -1459,6 +1465,90 @@ namespace PowerThreadPool_Net20
         }
 
         /// <summary>
+        /// 强制停止组内的所有工作
+        /// Force stop all works in a group
+        /// </summary>
+        private void ForceStopGroupWorks(Group group) {
+            if (group == null) return;
+
+            var workItems = group.GetMembers();
+            foreach (var workItemId in workItems) {
+                ForceStopWorkItem(workItemId);
+            }
+        }
+
+        /// <summary>
+        /// 强制停止单个工作项
+        /// Force stop a single work item
+        /// </summary>
+        private void ForceStopWorkItem(WorkID workId) {
+            lock (_lockObject) {
+                // 首先检查是否在队列中，如果在队列中直接移除
+                bool removedFromQueue = RemoveWorkFromQueue(workId);
+
+                if (!removedFromQueue) {
+                    // 如果不在队列中，检查是否正在执行
+                    foreach (WorkerThread worker in _workerThreads) {
+                        if (worker.CurrentWorkID.Equals(workId)) {
+                            // 找到正在执行该工作项的线程，尝试强制停止                                                          
+                            worker.Stop();
+
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 从队列中移除工作项
+        /// Remove work item from queue
+        /// </summary>
+        private bool RemoveWorkFromQueue(WorkID workId) {
+            // 由于LockFreePriorityQueue没有直接的移除方法，我们通过重建队列来移除指定工作项
+            bool removed = false;
+
+            // 处理主队列
+            var tempQueue = new LockFreePriorityQueue<WorkItem>(4);
+            WorkItem workItem;
+            while (_workQueue.TryDequeue(out workItem)) {
+                if (workItem != null && workItem.ID.Equals(workId)) {
+                    removed = true;
+                    // 找到要移除的工作项，不添加到临时队列
+                }
+                else {
+                    // 其他工作项添加到临时队列
+                    tempQueue.Enqueue(workItem,(int)(workItem?.Option.Priority ?? 0));
+                }
+            }
+
+            // 将临时队列内容移回主队列
+            while (tempQueue.TryDequeue(out workItem)) {
+                _workQueue.Enqueue(workItem,(int)(workItem?.Option.Priority ?? 0));
+            }
+
+            // 处理挂起队列
+            var tempSuspendedQueue = new LockFreePriorityQueue<WorkItem>(4);
+            WorkItem suspendedWorkItem;
+            while (_suspendedWorkQueue.TryDequeue(out suspendedWorkItem)) {
+                if (suspendedWorkItem != null && suspendedWorkItem.ID.Equals(workId)) {
+                    removed = true;
+                    // 找到要移除的工作项，不添加到临时队列
+                }
+                else {
+                    // 其他工作项添加到临时队列
+                    tempSuspendedQueue.Enqueue(suspendedWorkItem,(int)(suspendedWorkItem?.Option.Priority ?? 0));
+                }
+            }
+
+            // 将临时队列内容移回挂起队列
+            while (tempSuspendedQueue.TryDequeue(out suspendedWorkItem)) {
+                _suspendedWorkQueue.Enqueue(suspendedWorkItem,(int)(suspendedWorkItem?.Option.Priority ?? 0));
+            }
+
+            return removed;
+        }
+
+        /// <summary>
         /// 工作线程获取工作项
         /// Worker thread gets work item
         /// </summary>
@@ -1468,8 +1558,8 @@ namespace PowerThreadPool_Net20
                 if (_workQueue.TryDequeue(out WorkItem workItem)) {
                     // 添加 null 检查，防止返回 null 值
                     //if (workItem != null) {
-                        _logger.Debug($"WorkItem {workItem.ID} dequeued for execution");
-                        return workItem;
+                    _logger.Debug($"WorkItem {workItem.ID} dequeued for execution");
+                    return workItem;
                     //}
                     //else {
                     //    // 如果返回了 null，记录警告并继续尝试
@@ -1488,12 +1578,12 @@ namespace PowerThreadPool_Net20
                     if (_workQueue.TryDequeue(out workItem)) {
                         // 添加 null 检查
                         //if (workItem != null) {
-                            _logger.Debug($"WorkItem {workItem.ID} dequeued after wait");
-                            return workItem;
+                        _logger.Debug($"WorkItem {workItem.ID} dequeued after wait");
+                        return workItem;
                         //}
                         //else {
                         //    _logger.Warning("TryDequeue returned null WorkItem after wait, retrying...");
-                         //   continue;
+                        //   continue;
                         //}
                     }
 
@@ -1618,41 +1708,18 @@ namespace PowerThreadPool_Net20
 
                     // 停止所有工作线程
                     foreach (WorkerThread worker in _workerThreads) {
-                        try {
-                            worker.Stop();
-                        }
-                        catch (Exception ex) {
-#if UNITY
-                            UnityEngine.Debug.LogWarning($"Error stopping worker thread {worker.ThreadId}: {ex.Message}");
-#else
-                            Console.WriteLine($"Error stopping worker thread {worker.ThreadId}: {ex.Message}");
-#endif
-                        }
+                        worker.MarkForStop();
                     }
-
+                    // 通知所有等待的线程检查状态（重要：防止线程在Monitor.Wait中阻塞）
+                    Monitor.PulseAll(_lockObject);
                     // 等待所有线程完成，设置更长的超时时间
                     foreach (WorkerThread worker in _workerThreads) {
-                        try {
-                            worker.Join();
-
-                            // 检查线程是否真的停止了
-                            if (worker.Thread != null && worker.Thread.IsAlive) {
-#if UNITY
-                                Debug.LogWarning($"Worker thread {worker.ThreadId} did not stop gracefully after timeout");
-#else
-                                Console.WriteLine($"Worker thread {worker.ThreadId} did not stop gracefully after timeout");
-#endif
-                            }
-                        }
-                        catch (Exception ex) {
-#if UNITY
-                            UnityEngine.Debug.LogWarning($"Error joining worker thread {worker.ThreadId}: {ex.Message}");
-#else
-                            Console.WriteLine($"Error joining worker thread {worker.ThreadId}: {ex.Message}");
-#endif
-                        }
+                        worker.Join();
                     }
-
+                    foreach (WorkerThread worker in _workerThreads) {
+                        //强制结束
+                        worker.Stop();
+                    }
                     _workerThreads.Clear();
 
                     // 触发停止事件
@@ -1827,11 +1894,11 @@ namespace PowerThreadPool_Net20
 
             lock (_lockObject) {
                 if (_options.StartSuspended) {
-                    _suspendedWorkQueue.Enqueue(workItem, queuePriority);
+                    _suspendedWorkQueue.Enqueue(workItem,queuePriority);
                     _logger.Debug($"WorkItem {workItem.ID} requeued to suspended queue with priority {workItem.Option.Priority} (index: {queuePriority})");
                 }
                 else {
-                    _workQueue.Enqueue(workItem, queuePriority);
+                    _workQueue.Enqueue(workItem,queuePriority);
                     _logger.Debug($"WorkItem {workItem.ID} requeued with priority {workItem.Option.Priority} (index: {queuePriority})");
 
                     // 重置WaitAll信号，因为有新工作入队

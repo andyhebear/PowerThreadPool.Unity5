@@ -20,9 +20,9 @@ namespace PowerThreadPool_Net20
     /// </summary>
     public partial class PowerPool : IDisposable
     {
-        private readonly AtomicFlag _disposed = new AtomicFlag();
-        private readonly AtomicFlag _disposing = new AtomicFlag();
-        private readonly AtomicFlag _isStarted = new AtomicFlag();
+        private readonly AtomicBoolean _disposed = new AtomicBoolean();
+        private readonly AtomicBoolean _disposing = new AtomicBoolean();
+        private readonly AtomicBoolean _isStarted = new AtomicBoolean();
         private readonly InterlockedEnumFlag<PoolStates> _poolState = PoolStates.NotRunning;
 
         // 日志记录器
@@ -35,7 +35,7 @@ namespace PowerThreadPool_Net20
 
         // 监控线程
         private Thread _monitorThread;
-        private readonly AtomicFlag _monitorThreadRunning = new AtomicFlag();
+        private readonly AtomicBoolean _monitorThreadRunning = new AtomicBoolean();
 
         // 线程和队列管理（使用无锁队列）
         private List<WorkerThread> _workerThreads = new List<WorkerThread>();

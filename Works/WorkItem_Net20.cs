@@ -121,7 +121,7 @@ namespace PowerThreadPool_Net20.Works
                 _startTime = DateTime.Now;
 
             // 检查是否需要开启新线程执行
-            bool needsSeparateThread = _option.CancellationToken != null ||
+            bool needsSeparateThread = _option.CancelToken.HasValue ||
                                     (_option.Timeout.TotalMilliseconds < int.MaxValue &&
                                     _option.Timeout.TotalMilliseconds > 0);
 
@@ -217,7 +217,7 @@ namespace PowerThreadPool_Net20.Works
             this._asyncExecuteThread = new Thread(() => {
                 try {
                     // 检查取消状态
-                    if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
+                    if (_option.CancelToken.HasValue && _option.CancelToken.Value.IsCancellationRequested) {
                         throw new OperationCanceledException();
                     }
 
@@ -280,7 +280,7 @@ namespace PowerThreadPool_Net20.Works
 
             while (!waitCompleted) {
                 // 检查取消令牌
-                if (_option.CancellationToken != null && _option.CancellationToken.IsCancellationRequested) {
+                if (_option.CancelToken.HasValue && _option.CancelToken.Value.IsCancellationRequested) {
                     // 取消令牌被触发，标记为取消状态
                     isCancellationTokenCompleted = true;
                     AbortAsyncThreadSafely();

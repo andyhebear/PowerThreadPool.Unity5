@@ -38,14 +38,22 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Collections\BlockingCollection.cs" />
+    <Compile Include="Collections\Comparer\DefaultEqualityComparer.cs" />
+    <Compile Include="Collections\Comparer\DescendingIntComparer.cs" />
+    <Compile Include="Collections\Comparer\GenericEqualityComparer.cs" />
+    <Compile Include="Collections\ConcurrentDictionary.cs" />
     <Compile Include="Collections\ConcurrentObservableCollection_Net20.cs" />
     <Compile Include="Collections\ConcurrentQueue_Net20.cs" />
     <Compile Include="Collections\ConcurrentSet_Net20.cs" />
     <Compile Include="Collections\DelayedWorkQueue_Net20.cs" />
+    <Compile Include="Helpers\IdManager.cs" />
+    <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="Collections\LockFreeQueue_Net20.cs" />
     <Compile Include="Collections\NotifyCollectionChangedEventArgs.cs" />
     <Compile Include="Collections\ObservableCollection.cs" />
     <Compile Include="Collections\PriorityQueue_Net20.cs" />
+    <Compile Include="Collections\SplitOrderedList.cs" />
     <Compile Include="Constants\CanCancel_Net20.cs" />
     <Compile Include="Constants\CanCreateNewWorker_Net20.cs" />
     <Compile Include="Constants\CanDeleteRedundantWorker_Net20.cs" />
@@ -70,7 +78,7 @@
     <Compile Include="Exceptions\WorkRejectedException_Net20.cs" />
     <Compile Include="Groups\Group_Net20.cs" />
     <Compile Include="Helpers\InterlockedEnumFlag.cs" />
-    <Compile Include="Helpers\AtomicFlag.cs" />
+    <Compile Include="Helpers\AtomicBoolean.cs" />
     <Compile Include="Helpers\InterlockedHelper.cs" />
     <Compile Include="Logging\ILogger_Net20.cs" />
     <Compile Include="Options\PowerPoolOption_Net20.cs" />
@@ -82,6 +90,10 @@
     <Compile Include="Results\WorkStatusSummary_Net20.cs" />
     <Compile Include="Scheduling\WorkScheduler_Net20.cs" />
     <Compile Include="Threading\CancellationToken_Net20.cs" />
+    <Compile Include="Threading\ManualResetEventSlim.cs" />
+    <Compile Include="Threading\SimpleRwLock.cs" />
+    <Compile Include="Threading\SpinWait.cs" />
+    <Compile Include="Threading\SyncConsoleContext.cs" />
     <Compile Include="Works\WorkBase_Net20.cs" />
     <Compile Include="Works\WorkerThread_Net20.cs" />
     <Compile Include="Works\WorkID_Net20.cs" />

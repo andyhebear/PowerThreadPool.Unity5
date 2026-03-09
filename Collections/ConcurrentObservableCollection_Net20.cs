@@ -11,19 +11,19 @@ namespace PowerThreadPool_Net20.Collections
     /// 线程安全的可观察集合，支持.NET 2.0 / Thread-safe observable collection supporting .NET 2.0
     /// </summary>
     /// <typeparam name="T">元素类型 / Element type</typeparam>
-    public class ConcurrentObservableCollection_Net20<T>
+    public class ConcurrentObservableCollection<T>
     {
         private readonly ConcurrentQueue<T> _innerQueue;
         private readonly object _eventLock = new object();
         private InterlockedEnumFlag<WatchStates> _watchState;
         private InterlockedEnumFlag<CanWatch> _canWatch;
-        private EventHandler<NotifyCollectionChangedEventArgs_Net20<T>> _collectionChangedHandler;
+        private EventHandler<NotifyCollectionChangedEventArgs<T>> _collectionChangedHandler;
         private EventHandler<WorkFailedEventArgs> _watchFailedHandler;
 
         /// <summary>
         /// 集合变更事件 / Collection changed event
         /// </summary>
-        public event EventHandler<NotifyCollectionChangedEventArgs_Net20<T>> CollectionChanged;
+        public event EventHandler<NotifyCollectionChangedEventArgs<T>> CollectionChanged;
 
         /// <summary>
         /// 获取集合中元素的数量 / Get the number of elements in the collection
@@ -33,7 +33,7 @@ namespace PowerThreadPool_Net20.Collections
         /// <summary>
         /// 构造函数 / Constructor
         /// </summary>
-        public ConcurrentObservableCollection_Net20()
+        public ConcurrentObservableCollection()
         {
             _innerQueue = new ConcurrentQueue<T>();
             _watchState = WatchStates.Idle;
@@ -62,7 +62,7 @@ namespace PowerThreadPool_Net20.Collections
         public bool TryAdd(T item)
         {
             _innerQueue.Enqueue(item);
-            OnCollectionChanged(NotifyCollectionChangedAction_Net20.Add, item);
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
             return true;
         }
 
@@ -107,7 +107,7 @@ namespace PowerThreadPool_Net20.Collections
                 // 批量添加后触发一次事件
                 if (addedItems > 0)
                 {
-                    OnCollectionChanged(NotifyCollectionChangedAction_Net20.Reset, default(T));
+                    OnCollectionChanged(NotifyCollectionChangedAction.Reset, default(T));
                 }
             }
         }
@@ -146,7 +146,7 @@ namespace PowerThreadPool_Net20.Collections
                 // 批量添加后触发一次事件
                 if (addedItems > 0)
                 {
-                    OnCollectionChanged(NotifyCollectionChangedAction_Net20.Reset, default(T));
+                    OnCollectionChanged(NotifyCollectionChangedAction.Reset, default(T));
                 }
             }
             return true;
@@ -197,7 +197,7 @@ namespace PowerThreadPool_Net20.Collections
                 // 批量移除后触发一次事件
                 if (result.Count > 0)
                 {
-                    OnCollectionChanged(NotifyCollectionChangedAction_Net20.Reset, default(T));
+                    OnCollectionChanged(NotifyCollectionChangedAction.Reset, default(T));
                 }
             }
             
@@ -250,7 +250,7 @@ namespace PowerThreadPool_Net20.Collections
                 // 批量移除后触发一次事件
                 if (items.Count > 0)
                 {
-                    OnCollectionChanged(NotifyCollectionChangedAction_Net20.Reset, default(T));
+                    OnCollectionChanged(NotifyCollectionChangedAction.Reset, default(T));
                 }
             }
             
@@ -277,7 +277,7 @@ namespace PowerThreadPool_Net20.Collections
             bool success = _innerQueue.TryDequeue(out item);
             if (success)
             {
-                OnCollectionChanged(NotifyCollectionChangedAction_Net20.Remove, item);
+                OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
             }
             return success;
         }
@@ -306,7 +306,7 @@ namespace PowerThreadPool_Net20.Collections
         public void Clear()
         {
             _innerQueue.Clear();
-            OnCollectionChanged(NotifyCollectionChangedAction_Net20.Reset, default(T));
+            OnCollectionChanged(NotifyCollectionChangedAction.Reset, default(T));
         }
 
         /// <summary>
@@ -320,14 +320,14 @@ namespace PowerThreadPool_Net20.Collections
         /// <summary>
         /// 触发集合变更事件 / Trigger collection changed event
         /// </summary>
-        protected virtual void OnCollectionChanged(NotifyCollectionChangedAction_Net20 action, T item)
+        protected virtual void OnCollectionChanged(NotifyCollectionChangedAction action, T item)
         {
             // 先读取handler引用，避免在锁内读取
-            EventHandler<NotifyCollectionChangedEventArgs_Net20<T>> handler = VolatileRead(ref CollectionChanged);
+            EventHandler<NotifyCollectionChangedEventArgs<T>> handler = VolatileRead(ref CollectionChanged);
             
             if (handler != null)
             {
-                NotifyCollectionChangedEventArgs_Net20<T> e = new NotifyCollectionChangedEventArgs_Net20<T>(action, item);
+                NotifyCollectionChangedEventArgs<T> e = new NotifyCollectionChangedEventArgs<T>(action, item);
                 lock (_eventLock)
                 {
                     handler(this, e);
@@ -348,7 +348,7 @@ namespace PowerThreadPool_Net20.Collections
         /// <summary>
         /// 开始监视集合 / Start watching collection
         /// </summary>
-        internal bool StartWatching(EventHandler<NotifyCollectionChangedEventArgs_Net20<T>> onCollectionChanged)
+        internal bool StartWatching(EventHandler<NotifyCollectionChangedEventArgs<T>> onCollectionChanged)
         {
             // 检查是否允许开始监视
             // 如果当前值是 NotAllowed，则设置为 Allowed
@@ -429,7 +429,7 @@ namespace PowerThreadPool_Net20.Collections
     /// <summary>
     /// 集合变更动作枚举 / Collection changed action enumeration
     /// </summary>
-    public enum NotifyCollectionChangedAction_Net20
+    public enum NotifyCollectionChangedAction
     {
         /// <summary>
         /// 添加 / Add
@@ -457,12 +457,12 @@ namespace PowerThreadPool_Net20.Collections
     /// 集合变更事件参数 / Collection changed event arguments
     /// </summary>
     /// <typeparam name="T">元素类型 / Element type</typeparam>
-    public class NotifyCollectionChangedEventArgs_Net20<T> : EventArgs
+    public class NotifyCollectionChangedEventArgs<T> : EventArgs
     {
         /// <summary>
         /// 变更动作 / Action
         /// </summary>
-        public NotifyCollectionChangedAction_Net20 Action { get; private set; }
+        public NotifyCollectionChangedAction Action { get; private set; }
 
         /// <summary>
         /// 受影响的元素 / Affected item
@@ -472,7 +472,7 @@ namespace PowerThreadPool_Net20.Collections
         /// <summary>
         /// 构造函数 / Constructor
         /// </summary>
-        public NotifyCollectionChangedEventArgs_Net20(NotifyCollectionChangedAction_Net20 action, T item)
+        public NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction action, T item)
         {
             Action = action;
             Item = item;

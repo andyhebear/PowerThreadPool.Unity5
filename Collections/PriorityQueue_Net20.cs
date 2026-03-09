@@ -6,6 +6,7 @@ using PowerThreadPool_Net20.Works;
 
 namespace PowerThreadPool_Net20.Collections
 {
+    /*
     /// <summary>
     /// 优先级队列实现（支持WorkPriority枚举）
     /// Priority queue implementation (supports WorkPriority enum)
@@ -185,5 +186,7 @@ namespace PowerThreadPool_Net20.Collections
         {
             return GetEnumerator();
         }
+        
     }
+    */
 }

@@ -55,7 +55,7 @@ namespace PowerThreadPool_Net20.Options
         /// 取消令牌
         /// Cancellation token
         /// </summary>
-        public readonly CancellationToken CancellationToken;
+        public readonly CancellationToken? CancelToken;
 
         /// <summary>
         /// 优先级
@@ -91,7 +91,7 @@ namespace PowerThreadPool_Net20.Options
             MaxRetries = 0;
             RetryInterval = TimeSpan.FromSeconds(1);
             RetryCondition = null;
-            CancellationToken = null;
+            CancelToken = CancellationToken.None;
             Priority = WorkPriority.Normal;
             Name = "";
         }
@@ -101,14 +101,14 @@ namespace PowerThreadPool_Net20.Options
         /// Full constructor
         /// </summary>
         public WorkOption(TimeSpan timeout,int maxRetries = 0,TimeSpan? retryInterval = null,
-                         Func<Exception,bool> retryCondition = null,CancellationToken cancellationToken = null,
+                         Func<Exception,bool> retryCondition = null,CancellationToken? cancellationToken=null,
                          WorkPriority priority = WorkPriority.Normal,string name = null,object userData = null) {
             Timeout = timeout;
             LongRunning = CalculateLongRunning(timeout);
             MaxRetries = maxRetries;
             RetryInterval = retryInterval ?? TimeSpan.FromSeconds(1);
             RetryCondition = retryCondition;
-            CancellationToken = cancellationToken;
+            CancelToken = cancellationToken;
             Priority = priority;
             Name = name;
             UserData = userData;
@@ -120,14 +120,14 @@ namespace PowerThreadPool_Net20.Options
         /// 构造函数（超时时间和优先级）
         /// Constructor with timeout and priority
         /// </summary>      
-        public WorkOption(TimeSpan timeout,CancellationToken cancellationToken ,WorkPriority priority = WorkPriority.Normal) : this(timeout,0,TimeSpan.FromSeconds(1),null,cancellationToken,priority,null,null) {
+        public WorkOption(TimeSpan timeout,CancellationToken? cancellationToken ,WorkPriority priority = WorkPriority.Normal) : this(timeout,0,TimeSpan.FromSeconds(1),null,cancellationToken,priority,null,null) {
 
         }
         /// <summary>
         /// 构造函数（取消令牌）
         /// Constructor with cancellation token
         /// </summary>
-        public WorkOption(CancellationToken cancellationToken,WorkPriority priority = WorkPriority.Normal) : this(TimeSpan.Zero,0,TimeSpan.FromSeconds(1),null,cancellationToken,priority,null,null) {
+        public WorkOption(CancellationToken? cancellationToken,WorkPriority priority = WorkPriority.Normal) : this(TimeSpan.Zero,0,TimeSpan.FromSeconds(1),null,cancellationToken,priority,null,null) {
         }
         public WorkOption(int maxRetries,TimeSpan retryInterval,Func<Exception,bool> retryCondition = null,WorkPriority priority = WorkPriority.Normal)
               : this(TimeSpan.Zero,maxRetries,retryInterval,retryCondition,null,priority,null,null) {

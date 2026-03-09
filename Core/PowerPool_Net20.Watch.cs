@@ -43,7 +43,7 @@ namespace PowerThreadPool_Net20
         /// <param name="groupName">可选的组名称 / Optional group name</param>
         /// <returns>返回组对象 / Returns group object</returns>
         public Group Watch<TSource>(
-            ConcurrentObservableCollection_Net20<TSource> source,
+            ConcurrentObservableCollection<TSource> source,
             Action<TSource> body,
             bool addBackWhenWorkCanceled = true,
             bool addBackWhenWorkStopped = true,
@@ -105,7 +105,7 @@ namespace PowerThreadPool_Net20
             }
 
             // 处理集合变更
-            EventHandler<NotifyCollectionChangedEventArgs_Net20<TSource>> onCollectionChanged = null;
+            EventHandler<NotifyCollectionChangedEventArgs<TSource>> onCollectionChanged = null;
             onCollectionChanged = (s, e) =>
             {
                 // 先检查是否可以继续监视
@@ -157,7 +157,7 @@ namespace PowerThreadPool_Net20
         /// <param name="source">源集合 / Source collection</param>
         /// <param name="group">工作组对象 / Group object</param>
         /// <param name="keepRunning">是否保持运行 / Whether to keep running</param>
-        public void StopWatching<TSource>(ConcurrentObservableCollection_Net20<TSource> source, Group group = null, bool keepRunning = false)
+        public void StopWatching<TSource>(ConcurrentObservableCollection<TSource> source, Group group = null, bool keepRunning = false)
         {
             //StopWatchingCore(source, group, false, keepRunning);
             StopWatchingCore(source,group,true,keepRunning);
@@ -187,7 +187,7 @@ namespace PowerThreadPool_Net20
         /// Core logic for stopping watching
         /// </summary>
         private void StopWatchingCore<TSource>(
-            ConcurrentObservableCollection_Net20<TSource> source,
+            ConcurrentObservableCollection<TSource> source,
             Group group,
             bool forceStop,
             bool keepRunning = false)

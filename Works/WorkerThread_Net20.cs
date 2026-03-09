@@ -274,7 +274,7 @@ namespace PowerThreadPool_Net20.Works
             }
 
             // 检查取消令牌 - 由WorkerThread执行线程负责检查
-            if (workItem.Option.CancellationToken != null && workItem.Option.CancellationToken.IsCancellationRequested) {
+            if (workItem.Option.CancelToken.HasValue && workItem.Option.CancelToken.Value.IsCancellationRequested) {
                 // 在释放锁之前调用OnWorkCompleted，避免死锁
                 _pool.OnWorkCompleted(workItem,null,new OperationCanceledException(),0);
                 return;

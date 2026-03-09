@@ -1355,16 +1355,16 @@ namespace PowerThreadPool_Net20
             PrintTestTitle("测试工作取消 / Test Work Cancellation");
 
             using (PowerPool pool = CreateTestPool()) {
-                CancellationToken token = new CancellationToken();
+                CancellationTokenSource token = new CancellationTokenSource();
 
                 WorkID id = pool.QueueWorkItem(() => {
                     for (int i = 0; i < 100; i++) {
-                        token.ThrowIfCancellationRequested();
+                        token.Token.ThrowIfCancellationRequested();
                         Thread.Sleep(100);
                     }
                     return "Completed";
                 },new WorkOption(
-                     token
+                     token.Token
                 ));
 
                 Thread.Sleep(200);
@@ -3182,7 +3182,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool();
             pool.Start();
-            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+            ConcurrentObservableCollection<string> taskQueue = new ConcurrentObservableCollection<string>();
 
             Console.WriteLine($"Before Watch: Queue count = {taskQueue.Count}");
 
@@ -3230,7 +3230,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool(new PowerPoolOption() {  MinThreads=1,MaxThreads=1} );
             pool.Start();
-            ConcurrentObservableCollection_Net20<int> numberQueue = new ConcurrentObservableCollection_Net20<int>();
+            ConcurrentObservableCollection<int> numberQueue = new ConcurrentObservableCollection<int>();
 
             Group group = pool.Watch<int>(
                 source: numberQueue,
@@ -3263,7 +3263,7 @@ namespace PowerThreadPool_Net20
             PowerPool pool = new PowerPool();
             pool.Start();
 
-            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+            ConcurrentObservableCollection<string> taskQueue = new ConcurrentObservableCollection<string>();
 
             Group group = pool.Watch<string>(
                 source: taskQueue,
@@ -3308,7 +3308,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool();
             pool.Start();
-            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+            ConcurrentObservableCollection<string> taskQueue = new ConcurrentObservableCollection<string>();
 
             Group group = pool.Watch<string>(
                 source: taskQueue,
@@ -3350,7 +3350,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool();
             pool.Start();
-            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+            ConcurrentObservableCollection<string> taskQueue = new ConcurrentObservableCollection<string>();
 
             Group group = pool.Watch<string>(
                 source: taskQueue,
@@ -3395,7 +3395,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool();
             pool.Start();
-            ConcurrentObservableCollection_Net20<WorkItemTest> workQueue = new ConcurrentObservableCollection_Net20<WorkItemTest>();
+            ConcurrentObservableCollection<WorkItemTest> workQueue = new ConcurrentObservableCollection<WorkItemTest>();
 
             Group group = pool.Watch<WorkItemTest>(
                 source: workQueue,
@@ -3430,7 +3430,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool();
             pool.Start();
-            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+            ConcurrentObservableCollection<string> taskQueue = new ConcurrentObservableCollection<string>();
 
             Group group = pool.Watch<string>(
                 source: taskQueue,
@@ -3465,7 +3465,7 @@ namespace PowerThreadPool_Net20
 
             PowerPool pool = new PowerPool();
             pool.Start();
-            ConcurrentObservableCollection_Net20<string> taskQueue = new ConcurrentObservableCollection_Net20<string>();
+            ConcurrentObservableCollection<string> taskQueue = new ConcurrentObservableCollection<string>();
 
             Group group = pool.Watch<string>(
                 source: taskQueue,

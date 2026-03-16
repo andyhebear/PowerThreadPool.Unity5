@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using PowerThreadPool_Net20.Helpers;
 using PowerThreadPool_Net20.Threading;
+using CancellationToken = PowerThreadPool_Net20.Threading.CancellationToken;
 
 namespace PowerThreadPool_Net20.Collections
 {

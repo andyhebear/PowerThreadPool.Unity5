@@ -49,7 +49,7 @@ namespace PowerThreadPool_Net20.Helpers
     //    }
     //}
     /// <summary>
-    /// 可复用数字id管理器
+    /// 可复用数字id管理器,id必须大于或等于0,范围[0~int.MaxValue]
     /// </summary>
     public class IdManager
     {
@@ -82,8 +82,11 @@ namespace PowerThreadPool_Net20.Helpers
 
         // Return an ID to the pool
         public void ReturnId(int id) {
+            if (id < 0) return;
             lock (m_freeIds) {
-                m_freeIds[id] = true;
+                if (id < m_freeIds.Count) {
+                    m_freeIds[id] = true;
+                }
                 if (id < m_nextIdToTry) m_nextIdToTry = id;
             }
         }

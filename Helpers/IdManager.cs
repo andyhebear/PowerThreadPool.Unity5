@@ -5,49 +5,7 @@ using System.Threading;
 
 namespace PowerThreadPool_Net20.Helpers
 {
-    ///// <summary>
-    ///// Allows reusable uint Ids
-    ///// 允许可重用的 uint id
-    ///// </summary>
-    //public class IdQueue
-    //{
-    //    private int m_currentId;
-    //    private readonly LockFreeQueue<uint> m_freeIds;
 
-    //    public IdQueue() {
-    //        m_freeIds = new LockFreeQueue<uint>();
-    //    }
-
-    //    public uint NextId() {
-    //        if (m_freeIds.Count > 0) {
-    //            return m_freeIds.Dequeue();
-    //        }
-    //        else {
-    //            return (uint)Interlocked.Increment(ref m_currentId);
-    //        }
-    //    }
-
-    //    public void RecycleId(uint id) {
-    //        m_freeIds.Enqueue(id);
-    //    }
-
-    //    public void Load(List<uint> usedIds) {
-    //        uint maxId = 0;
-
-    //        for (int i = 0; i < usedIds.Count; i++) {
-    //            if (usedIds[i] > maxId)
-    //                maxId = usedIds[i];
-    //        }
-
-    //        for (uint i = 0; i <= maxId; i++) {
-    //            if (!usedIds.Contains(i)) {
-    //                RecycleId(i);
-    //            }
-    //        }
-
-    //        m_currentId = (int)maxId;
-    //    }
-    //}
     /// <summary>
     /// 可复用数字id管理器,id必须大于或等于0,范围[0~int.MaxValue]
     /// </summary>
@@ -113,4 +71,49 @@ namespace PowerThreadPool_Net20.Helpers
             }
         }
     }
+
+    ///// <summary>
+    ///// Allows reusable uint Ids
+    ///// 允许可重用的 uint id
+    ///// </summary>
+    //public class IdQueue
+    //{
+    //    private int m_currentId;
+    //    private readonly LockFreeQueue<uint> m_freeIds;
+
+    //    public IdQueue() {
+    //        m_freeIds = new LockFreeQueue<uint>();
+    //    }
+
+    //    public uint NextId() {
+    //        if (m_freeIds.Count > 0) {
+    //            return m_freeIds.Dequeue();
+    //        }
+    //        else {
+    //            return (uint)Interlocked.Increment(ref m_currentId);
+    //        }
+    //    }
+
+    //    public void RecycleId(uint id) {
+    //        m_freeIds.Enqueue(id);
+    //    }
+
+    //    public void Load(List<uint> usedIds) {
+    //        uint maxId = 0;
+
+    //        for (int i = 0; i < usedIds.Count; i++) {
+    //            if (usedIds[i] > maxId)
+    //                maxId = usedIds[i];
+    //        }
+
+    //        for (uint i = 0; i <= maxId; i++) {
+    //            if (!usedIds.Contains(i)) {
+    //                RecycleId(i);
+    //            }
+    //        }
+
+    //        m_currentId = (int)maxId;
+    //    }
+    //}
+
 }

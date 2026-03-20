@@ -3163,14 +3163,22 @@ namespace PowerThreadPool_Net20
             High
         }
         public static void RunAllTests() {
-            //Example1_BasicWatch();
-            //Example2_BatchAdd();
-            //Example3_HandleFailures();
-            //Example4_DynamicTasks();
-            //Example5_NoAddBackOnFailure();
-            //Example6_CustomObjects();
-            Example7_ForceStop(); 
+            Example1_BasicWatch();
+            Console.ReadLine();
+            Example2_BatchAdd();
+            Console.ReadLine();
+            Example3_HandleFailures();
+            Console.ReadLine();
+            Example4_DynamicTasks();
+            Console.ReadLine();
+            Example5_NoAddBackOnFailure();
+            Console.ReadLine();
+            Example6_CustomObjects();
+            Console.ReadLine();
+            Example7_ForceStop();
+            Console.ReadLine();
             Example8_StopKeepRunning();
+            Console.ReadLine();
         }
 
         /// <summary>
@@ -3195,9 +3203,9 @@ namespace PowerThreadPool_Net20
                     Console.WriteLine($"====Completed task: {task}");
                     Console.ResetColor();
                 },
-                addBackWhenWorkCanceled: true,
-                addBackWhenWorkStopped: true,
-                addBackWhenWorkFailed: true,
+                //addBackWhenWorkCanceled: true,
+                //addBackWhenWorkStopped: true,
+                //addBackWhenWorkFailed: true,
                 groupName: "TaskProcessor"
             );
 
@@ -3210,7 +3218,7 @@ namespace PowerThreadPool_Net20
             Console.WriteLine($"Before WaitAll: Queue count = {taskQueue.Count}");
             pool.WaitAll();
             Console.WriteLine($"After WaitAll: Queue count = {taskQueue.Count}");
-
+            taskQueue.Add("Task 4");
             Thread.Sleep(500); // 给最后的任务一些时间完成
 
             if (group != null)
@@ -3280,9 +3288,10 @@ namespace PowerThreadPool_Net20
                     Console.WriteLine($"====Task {task} completed successfully");
                     Console.ResetColor();
                 },
-                addBackWhenWorkFailed: true,
-                addBackWhenWorkCanceled: true,
-                addBackWhenWorkStopped: true,
+                maxRetryCount:3,
+                //addBackWhenWorkFailed: true,
+                //addBackWhenWorkCanceled: true,
+                //addBackWhenWorkStopped: true,
                 groupName: "FailureHandler"
             );
 
@@ -3367,9 +3376,9 @@ namespace PowerThreadPool_Net20
                     Console.WriteLine($"Task {task} succeeded");
                     Console.ResetColor();
                 },
-                addBackWhenWorkFailed: false,
-                addBackWhenWorkCanceled: false,
-                addBackWhenWorkStopped: false,
+                //addBackWhenWorkFailed: false,
+                //addBackWhenWorkCanceled: false,
+                //addBackWhenWorkStopped: false,
                 groupName: "NoRetryProcessor"
             );
 
@@ -3485,7 +3494,7 @@ namespace PowerThreadPool_Net20
             Thread.Sleep(1500);
 
             Console.WriteLine("Stopping watch but keep running...");
-            pool.StopWatching(taskQueue,group,keepRunning: true);
+            pool.StopWatching(taskQueue,group);
 
             taskQueue.Add("Task3");
             taskQueue.Add("Task4");

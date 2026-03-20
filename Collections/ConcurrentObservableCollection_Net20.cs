@@ -11,13 +11,13 @@ namespace PowerThreadPool_Net20.Collections
 {
     /// <summary>
     /// 线程安全的可观察集合，支持.NET 2.0 / Thread-safe observable collection supporting .NET 2.0
-    /// 使用BlockingCollection<T>作为内部存储实现生产者-消费者模式
-    /// Uses BlockingCollection<T> as internal storage for producer-consumer pattern
+    /// 使用LockFreeQueue<T>作为内部存储实现无锁高性能队列
+    /// Uses LockFreeQueue<T> as internal storage for lock-free high-performance queue
     /// </summary>
     /// <typeparam name="T">元素类型 / Element type</typeparam>
     public class ConcurrentObservableCollection<T>
     {
-        private readonly BlockingCollection<T> _innerCollection;
+        private readonly LockFreeQueue<T> _innerQueue;
         private readonly object _eventLock = new object();
         private InterlockedEnumFlag<WatchStates> _watchState;
         private InterlockedEnumFlag<CanWatch> _canWatch;
@@ -32,25 +32,25 @@ namespace PowerThreadPool_Net20.Collections
         /// <summary>
         /// 获取集合中元素的数量 / Get number of elements in collection
         /// </summary>
-        public int Count => _innerCollection.Count;
+        public int Count => _innerQueue.Count;
 
         /// <summary>
         /// 构造函数 / Constructor
         /// </summary>
         public ConcurrentObservableCollection()
         {
-            _innerCollection = new BlockingCollection<T>(new ConcurrentQueue<T>());
+            _innerQueue = new LockFreeQueue<T>();
             _watchState = WatchStates.Idle;
             _canWatch = CanWatch.NotAllowed;
         }
 
         /// <summary>
-        /// 构造函数（有界容量）/ Constructor with bounded capacity
+        /// 构造函数（从集合初始化）/ Constructor with collection initialization
         /// </summary>
-        /// <param name="boundedCapacity">集合的容量上限 / Upper bound capacity of collection</param>
-        public ConcurrentObservableCollection(int boundedCapacity)
+        /// <param name="items">初始元素集合 / Initial collection of elements</param>
+        public ConcurrentObservableCollection(IEnumerable<T> items)
         {
-            _innerCollection = new BlockingCollection<T>(new ConcurrentQueue<T>(), boundedCapacity);
+            _innerQueue = new LockFreeQueue<T>(items);
             _watchState = WatchStates.Idle;
             _canWatch = CanWatch.NotAllowed;
         }
@@ -73,15 +73,14 @@ namespace PowerThreadPool_Net20.Collections
 
         /// <summary>
         /// 尝试添加元素到集合 / Try to add element to collection
+        /// LockFreeQueue总是成功，此方法仅为兼容性提供
+        /// LockFreeQueue always succeeds, this method is provided for compatibility
         /// </summary>
         public bool TryAdd(T item)
         {
-            bool success = _innerCollection.TryAdd(item);
-            if (success)
-            {
-                OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
-            }
-            return success;
+            _innerQueue.Enqueue(item);
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
+            return true;
         }
 
         /// <summary>
@@ -89,7 +88,7 @@ namespace PowerThreadPool_Net20.Collections
         /// </summary>
         public void Add(T item)
         {
-            _innerCollection.Add(item);
+            _innerQueue.Enqueue(item);
             OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
         }
 
@@ -119,12 +118,10 @@ namespace PowerThreadPool_Net20.Collections
                 int addedItems = 0;
                 foreach (T item in items)
                 {
-                    if (_innerCollection.TryAdd(item))
-                    {
-                        addedItems++;
-                    }
+                    _innerQueue.Enqueue(item);
+                    addedItems++;
                 }
-                
+
                 // 批量添加后触发一次事件
                 if (addedItems > 0)
                 {
@@ -160,12 +157,10 @@ namespace PowerThreadPool_Net20.Collections
                 int addedItems = 0;
                 foreach (T item in items)
                 {
-                    if (_innerCollection.TryAdd(item))
-                    {
-                        addedItems++;
-                    }
+                    _innerQueue.Enqueue(item);
+                    addedItems++;
                 }
-                
+
                 // 批量添加后触发一次事件
                 if (addedItems > 0)
                 {
@@ -207,7 +202,7 @@ namespace PowerThreadPool_Net20.Collections
                 for (int i = 0; i < count; i++)
                 {
                     T item;
-                    if (_innerCollection.TryTake(out item))
+                    if (_innerQueue.TryDequeue(out item))
                     {
                         result.Add(item);
                     }
@@ -216,7 +211,7 @@ namespace PowerThreadPool_Net20.Collections
                         break;
                     }
                 }
-                
+
                 // 批量移除后触发一次事件
                 if (result.Count > 0)
                 {
@@ -260,7 +255,7 @@ namespace PowerThreadPool_Net20.Collections
                 for (int i = 0; i < count; i++)
                 {
                     T item;
-                    if (_innerCollection.TryTake(out item))
+                    if (_innerQueue.TryDequeue(out item))
                     {
                         items.Add(item);
                     }
@@ -269,7 +264,7 @@ namespace PowerThreadPool_Net20.Collections
                         break;
                     }
                 }
-                
+
                 // 批量移除后触发一次事件
                 if (items.Count > 0)
                 {
@@ -297,7 +292,7 @@ namespace PowerThreadPool_Net20.Collections
         /// </summary>
         public bool TryTake(out T item)
         {
-            bool success = _innerCollection.TryTake(out item);
+            bool success = _innerQueue.TryDequeue(out item);
             if (success)
             {
                 OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
@@ -310,27 +305,17 @@ namespace PowerThreadPool_Net20.Collections
         /// </summary>
         public T Take()
         {
-            T item = _innerCollection.Take();
+            T item = _innerQueue.Dequeue();
             OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
             return item;
         }
 
         /// <summary>
         /// 查看集合中的第一个元素 / Peek at first element in collection
-        /// 注意：BlockingCollection不支持Peek操作，因此本方法返回To数组的第一个元素
-        /// Note: BlockingCollection doesn't support Peek operation, this method returns first element of ToArray
         /// </summary>
         public bool TryPeek(out T item)
         {
-            // BlockingCollection不支持Peek，返回To数组的第一个元素
-            T[] array = _innerCollection.ToArray();
-            if (array != null && array.Length > 0)
-            {
-                item = array[0];
-                return true;
-            }
-            item = default(T);
-            return false;
+            return _innerQueue.TryPeek(out item);
         }
 
         /// <summary>
@@ -338,12 +323,7 @@ namespace PowerThreadPool_Net20.Collections
         /// </summary>
         public void Clear()
         {
-            // BlockingCollection不支持Clear操作，通过逐个Take实现
-            T item;
-            while (_innerCollection.TryTake(out item))
-            {
-                // 持续清空，直到没有元素
-            }
+            _innerQueue.Clear();
             OnCollectionChanged(NotifyCollectionChangedAction.Reset, default(T));
         }
 
@@ -352,7 +332,7 @@ namespace PowerThreadPool_Net20.Collections
         /// </summary>
         public T[] ToArray()
         {
-            return _innerCollection.ToArray();
+            return _innerQueue.ToArray();
         }
 
         /// <summary>

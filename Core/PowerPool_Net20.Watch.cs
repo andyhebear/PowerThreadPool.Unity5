@@ -193,10 +193,10 @@ namespace PowerThreadPool_Net20
             }
             else {
                 source.StopWatching(keepRunning);
+            }
 
-                if (!keepRunning && group != null) {
-                    group.Wait(30000);
-                }
+            if (!keepRunning && group != null) {
+                group.Wait(30000);
             }
 
             EventHandler<WorkFailedEventArgs> watchFailedHandler = source.GetWatchFailedHandler();

@@ -28,6 +28,10 @@ namespace PowerThreadPool_Net20
         // 日志记录器
         private ILogger _logger;
 
+        // 主线程调用帮助器（1对1关系）
+        // Main thread invocation helper (1-to-1 relationship)
+        private ThreadInvokeHelper _threadInvokeHelper;
+
         // 线程同步对象
         private readonly object _lockObject = new object();
         private readonly ManualResetEvent _waitAllSignal = new ManualResetEvent(false);
@@ -230,9 +234,13 @@ namespace PowerThreadPool_Net20
         // 事件委托
         public event EventHandler<WorkCompletedEventArgs> WorkCompleted;
         public event EventHandler<WorkFailedEventArgs> WorkFailed;
+        public event EventHandler<WorkCompletedEventArgs> WorkCompletedInMainThread;
+        public event EventHandler<WorkFailedEventArgs> WorkFailedInMainThread;
         //public event EventHandler<WorkCanceledEventArgs> WorkCanceled;
         public event EventHandler<PoolStartedEventArgs> PoolStarted;
         public event EventHandler<PoolStoppedEventArgs> PoolStopped;
+        public event EventHandler<PoolStartedEventArgs> PoolStartedInMainThread;
+        public event EventHandler<PoolStoppedEventArgs> PoolStoppedInMainThread;
 
         /// <summary>
         /// 默认构造函数
@@ -257,6 +265,10 @@ namespace PowerThreadPool_Net20
             _logger = logger ?? LoggerFactory.CreateDefaultLogger();
             _logger.Info($"PowerPool created with MaxThreads: {_options.MaxThreads}, MinThreads: {_options.MinThreads}");
 
+            // 创建并初始化 ThreadInvokeHelper（1对1关系）
+            // Create and initialize ThreadInvokeHelper (1-to-1 relationship)
+            _threadInvokeHelper = new ThreadInvokeHelper(true);
+         
         }
 
         /// <summary>
@@ -297,9 +309,22 @@ namespace PowerThreadPool_Net20
                 // 记录启动日志
                 _logger.Info($"PowerPool started with {_workerThreads.Count} worker threads");
 
-                // 触发启动事件
+                // 触发启动事件（当前线程）
                 if (PoolStarted != null) {
                     PoolStarted(this,new PoolStartedEventArgs(DateTime.Now));
+                }
+
+                // 触发启动事件（主线程）
+                if (PoolStartedInMainThread != null) {
+                    PoolStartedEventArgs args = new PoolStartedEventArgs(DateTime.Now);
+                    try {
+                        _threadInvokeHelper.BeginInvokeOnMainThread(() => {
+                            PoolStartedInMainThread(this, args);
+                        });
+                    }
+                    catch (Exception ex) {
+                        _logger.Warning($"Failed to trigger PoolStartedInMainThread event: {ex.Message}");
+                    }
                 }
             }
         }
@@ -1619,6 +1644,7 @@ namespace PowerThreadPool_Net20
                     executeResult = new ExecuteResult(workItem.ID,exception,startTime,completionTime,retryCount);
                 }
 
+                // 触发失败事件（当前线程）
                 if (WorkFailed != null) {
                     // 判断是否为取消导致的失败
                     bool isCanceled = (exception is OperationCanceledException);
@@ -1626,14 +1652,43 @@ namespace PowerThreadPool_Net20
                     WorkFailedEventArgs args = new WorkFailedEventArgs(workItem.ID,exception,completionTime,isCanceled,isTimeout);
                     WorkFailed(this,args);
                 }
+
+                // 触发失败事件（主线程）
+                if (WorkFailedInMainThread != null) {
+                    bool isCanceled = (exception is OperationCanceledException);
+                    bool isTimeout = (exception is TimeoutException);
+                    WorkFailedEventArgs args = new WorkFailedEventArgs(workItem.ID,exception,completionTime,isCanceled,isTimeout);
+                    try {
+                        _threadInvokeHelper.BeginInvokeOnMainThread(() => {
+                            WorkFailedInMainThread(this, args);
+                        });
+                    }
+                    catch (Exception ex) {
+                        _logger.Warning($"Failed to trigger WorkFailedInMainThread event for work {workItem.ID}: {ex.Message}");
+                    }
+                }
             }
             else {
                 InterlockedHelper.Add(ref _completedWorkItems,1);
                 executeResult = new ExecuteResult(workItem.ID,result,startTime,completionTime,retryCount);
 
+                // 触发完成事件（当前线程）
                 if (WorkCompleted != null) {
                     WorkCompletedEventArgs args = new WorkCompletedEventArgs(workItem.ID,result,completionTime);
                     WorkCompleted(this,args);
+                }
+
+                // 触发完成事件（主线程）
+                if (WorkCompletedInMainThread != null) {
+                    WorkCompletedEventArgs args = new WorkCompletedEventArgs(workItem.ID,result,completionTime);
+                    try {
+                        _threadInvokeHelper.BeginInvokeOnMainThread(() => {
+                            WorkCompletedInMainThread(this, args);
+                        });
+                    }
+                    catch (Exception ex) {
+                        _logger.Warning($"Failed to trigger WorkCompletedInMainThread event for work {workItem.ID}: {ex.Message}");
+                    }
                 }
             }
 
@@ -1722,7 +1777,7 @@ namespace PowerThreadPool_Net20
                     }
                     _workerThreads.Clear();
 
-                    // 触发停止事件
+                    // 触发停止事件（当前线程）
                     if (PoolStopped != null) {
                         try {
                             PoolStopped(this,new PoolStoppedEventArgs(DateTime.Now,_completedWorkItems,_failedWorkItems));
@@ -1733,6 +1788,19 @@ namespace PowerThreadPool_Net20
 #else
                             Console.WriteLine($"Error triggering PoolStopped event: {ex.Message}");
 #endif
+                        }
+                    }
+
+                    // 触发停止事件（主线程）
+                    if (PoolStoppedInMainThread != null) {
+                        PoolStoppedEventArgs args = new PoolStoppedEventArgs(DateTime.Now,_completedWorkItems,_failedWorkItems);
+                        try {
+                            _threadInvokeHelper.BeginInvokeOnMainThread(() => {
+                                PoolStoppedInMainThread(this, args);
+                            });
+                        }
+                        catch (Exception ex) {
+                            _logger.Warning($"Failed to trigger PoolStoppedInMainThread event: {ex.Message}");
                         }
                     }
                 }

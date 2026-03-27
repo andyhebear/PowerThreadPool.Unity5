@@ -47,6 +47,7 @@
     <Compile Include="Collections\ConcurrentQueue_Net20.cs" />
     <Compile Include="Collections\ConcurrentSet_Net20.cs" />
     <Compile Include="Collections\DelayedWorkQueue_Net20.cs" />
+    <Compile Include="Collections\Deque.cs" />
     <Compile Include="Helpers\IdManager.cs" />
     <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="Collections\LockFreeQueue_Net20.cs" />
@@ -80,6 +81,15 @@
     <Compile Include="Helpers\InterlockedEnumFlag.cs" />
     <Compile Include="Helpers\AtomicBoolean.cs" />
     <Compile Include="Helpers\InterlockedHelper.cs" />
+    <Compile Include="Helpers\ThreadInvokeHelper.cs" />
+    <Compile Include="SynchContexts\ConsoleSynchronizationContext.cs" />
+    <Compile Include="SynchContexts\DelegateQueue\AsyncResult.cs" />
+    <Compile Include="SynchContexts\DelegateQueue\DelegateQueue.AsyncResult.cs" />
+    <Compile Include="SynchContexts\DelegateQueue\DelegateQueue.cs" />
+    <Compile Include="SynchContexts\DelegateQueue\InvokeCompletedEventArgs.cs" />
+    <Compile Include="SynchContexts\DelegateQueue\PostCompletedEventArgs.cs" />
+    <Compile Include="SynchContexts\StaSynchronizationContext.cs" />
+    <Compile Include="Threading\MonitorExt.cs" />
     <Compile Include="Threading\Spinner.cs" />
     <Compile Include="Logging\ILogger_Net20.cs" />
     <Compile Include="Options\PowerPoolOption_Net20.cs" />
@@ -94,7 +104,6 @@
     <Compile Include="Threading\ManualResetEventSlim.cs" />
     <Compile Include="Threading\SimpleRwLock.cs" />
     <Compile Include="Threading\SpinWait.cs" />
-    <Compile Include="Threading\SyncConsoleContext.cs" />
     <Compile Include="Works\WorkBase_Net20.cs" />
     <Compile Include="Works\WorkerThread_Net20.cs" />
     <Compile Include="Works\WorkID_Net20.cs" />

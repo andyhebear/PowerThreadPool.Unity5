@@ -169,7 +169,7 @@ namespace PowerThreadPool_Net20
             Console.WriteLine();
             Console.WriteLine("PowerPool disposed");
             Console.WriteLine("Press any key to exit...");
-            Console.ReadKey();
+            Console.ReadLine();
         }
 
         /// <summary>
@@ -3164,21 +3164,21 @@ namespace PowerThreadPool_Net20
         }
         public static void RunAllTests() {
             Example1_BasicWatch();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example2_BatchAdd();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example3_HandleFailures();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example4_DynamicTasks();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example5_NoAddBackOnFailure();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example6_CustomObjects();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example7_ForceStop();
-            Console.ReadLine();
+            //Console.ReadLine();
             Example8_StopKeepRunning();
-            Console.ReadLine();
+            //Console.ReadLine();
         }
 
         /// <summary>

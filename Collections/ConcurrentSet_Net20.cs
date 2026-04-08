@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace PowerThreadPool_Net20.Collections
 {
-    public class ConcurrentSet<T> : IEnumerable<T>
+    public class ConcurrentSet<T> : IEnumerable<T>, ICollection<T>
     {
         private readonly ConcurrentDictionary<T,byte> _dictionary;
 
@@ -38,6 +38,10 @@ namespace PowerThreadPool_Net20.Collections
             return res;
         }
 
+        void ICollection<T>.Add(T item) {
+            Add(item);
+        }
+
         /// <summary>
         /// Removes an item.
         /// </summary>
@@ -45,10 +49,14 @@ namespace PowerThreadPool_Net20.Collections
         /// <returns></returns>
         public bool Remove(T item) => _dictionary.TryRemove(item,out _);
 
+    
+
         /// <summary>
         /// Gets the count of items.
         /// </summary>
         public int Count => _dictionary.Count;
+
+        public bool IsReadOnly => false;
 
         /// <summary>
         /// Checks whether the collection contains the specified value.
@@ -71,6 +79,8 @@ namespace PowerThreadPool_Net20.Collections
         /// </summary>
         /// <returns></returns>
         public IEnumerator<T> GetEnumerator() => _dictionary.Keys.GetEnumerator();
+
+        public void CopyTo(T[] array,int arrayIndex) => _dictionary.Keys.CopyTo(array,arrayIndex);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
